@@ -47,7 +47,7 @@ namespace MakePlacePlugin
                 InteriorFloor.Ground => "1楼",
                 InteriorFloor.Basement => "地下室",
                 InteriorFloor.Upstairs => "2楼",
-                InteriorFloor.External => "主厅",
+                InteriorFloor.External => "庭院",
                 _ => "未知"
             };
         }
