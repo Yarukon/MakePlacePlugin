@@ -354,42 +354,42 @@ namespace MakePlacePlugin
                 switch (sizeName)
                 {
                     case "1i1":
-                        layout.houseSize = "Small";
+                        layout.houseSize = "小";
                         break;
                     case "1i2":
-                        layout.houseSize = "Medium";
+                        layout.houseSize = "中";
                         break;
                     case "1i3":
-                        layout.houseSize = "Large";
+                        layout.houseSize = "大";
                         break;
                     case "1i4":
-                        layout.houseSize = "Apartment";
+                        layout.houseSize = "公寓";
                         break;
                     default:
                         break;
                 }
 
                 var district = new Fixture();
-                district.type = "District";
+                district.type = "区域";
 
                 var districtName = placeName.Substring(0, 2);
 
                 switch (districtName)
                 {
                     case "s1":
-                        district.name = "Mist";
+                        district.name = "海雾村";
                         break;
                     case "f1":
-                        district.name = "Lavender Beds";
+                        district.name = "薰衣草苗圃";
                         break;
                     case "w1":
-                        district.name = "Goblet";
+                        district.name = "高脚孤丘";
                         break;
                     case "e1":
-                        district.name = "Shirogane";
+                        district.name = "白银乡";
                         break;
                     case "r1":
-                        district.name = "Empyreum";
+                        district.name = "穹顶皓天";
                         break;
                     default:
                         break;
@@ -467,7 +467,7 @@ namespace MakePlacePlugin
             File.WriteAllText(Config.SaveLocation, result);
 
 
-            Log("Finished exporting layout");
+            Log("导出布局完毕");
         }
 
     }

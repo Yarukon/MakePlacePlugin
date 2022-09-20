@@ -50,33 +50,33 @@ namespace MakePlacePlugin.Gui
                     ImGui.PushStyleColor(ImGuiCol.HeaderActive, PURPLE);
 
 
-                    if (ImGui.CollapsingHeader("Interior Furniture", ImGuiTreeNodeFlags.DefaultOpen))
+                    if (ImGui.CollapsingHeader("内部家具", ImGuiTreeNodeFlags.DefaultOpen))
                     {
                         ImGui.PushID("interior");
                         DrawItemList(Plugin.InteriorItemList);
                         ImGui.PopID();
                     }
-                    if (ImGui.CollapsingHeader("Exterior Furniture", ImGuiTreeNodeFlags.DefaultOpen))
+                    if (ImGui.CollapsingHeader("外部家具", ImGuiTreeNodeFlags.DefaultOpen))
                     {
                         ImGui.PushID("exterior");
                         DrawItemList(Plugin.ExteriorItemList);
                         ImGui.PopID();
                     }
 
-                    if (ImGui.CollapsingHeader("Interior Fixtures", ImGuiTreeNodeFlags.DefaultOpen))
+                    if (ImGui.CollapsingHeader("内部挂件", ImGuiTreeNodeFlags.DefaultOpen))
                     {
                         ImGui.PushID("interiorFixture");
                         DrawFixtureList(Plugin.Layout.interiorFixture);
                         ImGui.PopID();
                     }
 
-                    if (ImGui.CollapsingHeader("Exterior Fixtures", ImGuiTreeNodeFlags.DefaultOpen))
+                    if (ImGui.CollapsingHeader("外部挂件", ImGuiTreeNodeFlags.DefaultOpen))
                     {
                         ImGui.PushID("exteriorFixture");
                         DrawFixtureList(Plugin.Layout.exteriorFixture);
                         ImGui.PopID();
                     }
-                    if (ImGui.CollapsingHeader("Unused Furniture", ImGuiTreeNodeFlags.DefaultOpen))
+                    if (ImGui.CollapsingHeader("未使用的家具", ImGuiTreeNodeFlags.DefaultOpen))
                     {
                         ImGui.PushID("unused");
                         DrawItemList(Plugin.UnusedItemList, true);
@@ -143,25 +143,25 @@ namespace MakePlacePlugin.Gui
         unsafe private void DrawGeneralSettings()
         {
 
-            if (ImGui.Checkbox("Label Furniture", ref Config.DrawScreen)) Config.Save();
+            if (ImGui.Checkbox("显示家具名称", ref Config.DrawScreen)) Config.Save();
             if (Config.ShowTooltips && ImGui.IsItemHovered())
-                ImGui.SetTooltip("Show furniture names on the screen");
+                ImGui.SetTooltip("在屏幕上显示家具名称");
 
             ImGui.SameLine();
             ImGui.Dummy(new Vector2(10, 0));
             ImGui.SameLine();
             if (ImGui.Checkbox("##hideTooltipsOnOff", ref Config.ShowTooltips)) Config.Save();
             ImGui.SameLine();
-            ImGui.TextUnformatted("Show Tooltips");
+            ImGui.TextUnformatted("显示工具栏");
 
             ImGui.Dummy(new Vector2(0, 10));
-            ImGui.Text("Save/Load file location");
+            ImGui.Text("保存/加载文件位置");
             if (ImGui.InputText("##saveLocation", ref Config.SaveLocation, 150))
             {
                 Config.Save();
             }
 
-            if (ImGui.Button("Save"))
+            if (ImGui.Button("保存"))
             {
                 try
                 {
@@ -169,27 +169,27 @@ namespace MakePlacePlugin.Gui
                 }
                 catch (Exception e)
                 {
-                    LogError($"Save Error: {e.Message}", e.StackTrace);
+                    LogError($"保存错误: {e.Message}", e.StackTrace);
                 }
             }
-            if (Config.ShowTooltips && ImGui.IsItemHovered()) ImGui.SetTooltip("Save current layout to file");
+            if (Config.ShowTooltips && ImGui.IsItemHovered()) ImGui.SetTooltip("保存当前布局到文件");
             ImGui.SameLine();
-            ImGui.Text("Plugin → File           ");
+            ImGui.Text("插件 → 文件           ");
 
 
             ImGui.SameLine();
-            if (ImGui.Button("Load"))
+            if (ImGui.Button("读取"))
             {
 
                 if (!IsDecorMode())
                 {
-                    LogError("Unable to load layouts outside of Layout mode");
-                    LogError("(Housing -> Indoor/Outdoor Furnishings)");
+                    LogError("无法在规划模式之外加载布局");
+                    LogError("(房屋 -> 布置庭具/家具)");
 
                 }
                 else if (!Config.SaveLocation.EndsWith(".json"))
                 {
-                    LogError("Error: Json layout file not specified");
+                    LogError("错误: Json布局文件未指定");
                 }
                 else
                 {
@@ -199,38 +199,38 @@ namespace MakePlacePlugin.Gui
                         SaveLayoutManager.ImportLayout(Config.SaveLocation);
                         Plugin.MatchLayout();
                         Config.ResetRecord();
-                        Log(String.Format("Imported {0} items", Plugin.InteriorItemList.Count + Plugin.ExteriorItemList.Count));
+                        Log(String.Format("导入了 {0} 个物品", Plugin.InteriorItemList.Count + Plugin.ExteriorItemList.Count));
                     }
                     catch (Exception e)
                     {
-                        LogError($"Load Error: {e.Message}", e.StackTrace);
+                        LogError($"读取错误: {e.Message}", e.StackTrace);
                     }
                 }
             }
-            if (Config.ShowTooltips && ImGui.IsItemHovered()) ImGui.SetTooltip("Load layout from file");
+            if (Config.ShowTooltips && ImGui.IsItemHovered()) ImGui.SetTooltip("从文件加载布局");
             ImGui.SameLine();
-            ImGui.Text("File → Plugin");
+            ImGui.Text("文件 → 插件");
 
 
             ImGui.Dummy(new Vector2(0, 15));
 
-            ImGui.Text("Selected Floors");
+            ImGui.Text("选中的楼层");
 
-            if (ImGui.Checkbox("Basement", ref Config.Basement))
+            if (ImGui.Checkbox("地下室", ref Config.Basement))
             {
                 Plugin.MatchLayout();
                 Config.Save();
             }
             ImGui.SameLine(); ImGui.Dummy(new Vector2(10, 0)); ImGui.SameLine();
 
-            if (ImGui.Checkbox("Ground Floor", ref Config.GroundFloor))
+            if (ImGui.Checkbox("1楼", ref Config.GroundFloor))
             {
                 Plugin.MatchLayout();
                 Config.Save();
             }
             ImGui.SameLine(); ImGui.Dummy(new Vector2(10, 0)); ImGui.SameLine();
 
-            if (ImGui.Checkbox("Upper Floor", ref Config.UpperFloor))
+            if (ImGui.Checkbox("2楼", ref Config.UpperFloor))
             {
                 Plugin.MatchLayout();
                 Config.Save();
@@ -238,11 +238,11 @@ namespace MakePlacePlugin.Gui
 
             ImGui.Dummy(new Vector2(0, 15));
 
-            ImGui.Text("Layout Actions");
+            ImGui.Text("布局操作");
 
-            var inOut = Memory.Instance.IsOutdoors() ? "Exterior" : "Interior";
+            var inOut = Memory.Instance.IsOutdoors() ? "外部家具" : "内部家具";
 
-            if (ImGui.Button($"Get {inOut} Layout"))
+            if (ImGui.Button($"获取 {inOut} 布局"))
             {
                 if (IsDecorMode())
                 {
@@ -252,21 +252,21 @@ namespace MakePlacePlugin.Gui
                     }
                     catch (Exception e)
                     {
-                        LogError($"Error: {e.Message}", e.StackTrace);
+                        LogError($"错误: {e.Message}", e.StackTrace);
                     }
                 }
                 else
                 {
-                    LogError("Unable to load layouts outside of Layout mode");
-                    LogError("(Housing -> Indoor/Outdoor Furnishings)");
+                    LogError("无法在规划模式之外加载布局");
+                    LogError("(房屋 -> 布置庭具/家具)");
 
                 }
             }
             ImGui.SameLine();
-            ImGui.Text("Game → Plugin           ");
+            ImGui.Text("游戏 → 插件           ");
             ImGui.SameLine();
 
-            if (ImGui.Button($"Apply {inOut} Layout"))
+            if (ImGui.Button($"应用 {inOut} 布局"))
             {
                 if (IsDecorMode() && IsRotateMode())
                 {
@@ -277,25 +277,25 @@ namespace MakePlacePlugin.Gui
                     }
                     catch (Exception e)
                     {
-                        LogError($"Error: {e.Message}", e.StackTrace);
+                        LogError($"错误: {e.Message}", e.StackTrace);
                     }
                 }
                 else
                 {
-                    LogError("Unable to apply layouts outside of Rotate Layout mode");
+                    LogError("无法在规划->旋转模式之外应用布局");
                 }
             }
             ImGui.SameLine();
-            ImGui.Text("Plugin → Game           ");
+            ImGui.Text("插件 → 游戏           ");
             ImGui.SameLine();
 
             ImGui.PushItemWidth(100);
-            if (ImGui.InputInt("Placement Interval (ms)", ref Config.LoadInterval))
+            if (ImGui.InputInt("放置间隔 (ms)", ref Config.LoadInterval))
             {
                 Config.Save();
             }
             ImGui.PopItemWidth();
-            if (Config.ShowTooltips && ImGui.IsItemHovered()) ImGui.SetTooltip("Time interval between furniture placements when applying a layout. If this is too low (e.g. 200 ms), some placements may be skipped over.");
+            if (Config.ShowTooltips && ImGui.IsItemHovered()) ImGui.SetTooltip("应用布局时家具放置之间的时间间隔. 如果设定过低 (例如 200 ms), 一些家具的放置可能会被跳过.");
 
             ImGui.Dummy(new Vector2(0, 15));
             Config.Save();
@@ -335,7 +335,7 @@ namespace MakePlacePlugin.Gui
 
                 if (!noMatch)
                 {
-                    if (ImGui.Button("Set" + "##" + uniqueID))
+                    if (ImGui.Button("设置" + "##" + uniqueID))
                     {
                         Plugin.MatchLayout();
 
@@ -345,7 +345,7 @@ namespace MakePlacePlugin.Gui
                         }
                         else
                         {
-                            LogError($"Unable to set position for {housingItem.Name}");
+                            LogError($"无法设置 {housingItem.Name} 的位置");
                         }
                     }
                 }
@@ -360,7 +360,7 @@ namespace MakePlacePlugin.Gui
         {
             try
             {
-                if (ImGui.Button("Clear"))
+                if (ImGui.Button("清除"))
                 {
                     fixtureList.Clear();
                     Config.Save();
@@ -369,9 +369,9 @@ namespace MakePlacePlugin.Gui
                 ImGui.Columns(3, "FixtureList", true);
                 ImGui.Separator();
 
-                ImGui.Text("Level"); ImGui.NextColumn();
-                ImGui.Text("Fixture"); ImGui.NextColumn();
-                ImGui.Text("Item"); ImGui.NextColumn();
+                ImGui.Text("楼层"); ImGui.NextColumn();
+                ImGui.Text("挂件类型"); ImGui.NextColumn();
+                ImGui.Text("物品"); ImGui.NextColumn();
 
                 ImGui.Separator();
 
@@ -407,7 +407,7 @@ namespace MakePlacePlugin.Gui
 
 
 
-            if (ImGui.Button("Sort"))
+            if (ImGui.Button("排序"))
             {
                 itemList.Sort((x, y) =>
                 {
@@ -426,7 +426,7 @@ namespace MakePlacePlugin.Gui
                 Config.Save();
             }
             ImGui.SameLine();
-            if (ImGui.Button("Clear"))
+            if (ImGui.Button("清除"))
             {
                 itemList.Clear();
                 Config.Save();
@@ -435,7 +435,7 @@ namespace MakePlacePlugin.Gui
             if (!isUnused)
             {
                 ImGui.SameLine();
-                ImGui.Text("Note: Missing items, incorrect dyes, and items on unselected floors are grayed out");
+                ImGui.Text("注意: 缺失的物品, 不对应的染剂, 和未选定楼层的物品将会淡出.");
             }
 
             // name, position, r, color, set
@@ -444,14 +444,14 @@ namespace MakePlacePlugin.Gui
 
             ImGui.Columns(columns, "ItemList", true);
             ImGui.Separator();
-            ImGui.Text("Item"); ImGui.NextColumn();
-            ImGui.Text("Position (X,Y,Z)"); ImGui.NextColumn();
-            ImGui.Text("Rotation"); ImGui.NextColumn();
-            ImGui.Text("Dye"); ImGui.NextColumn();
+            ImGui.Text("物品"); ImGui.NextColumn();
+            ImGui.Text("位置 (X,Y,Z)"); ImGui.NextColumn();
+            ImGui.Text("旋转"); ImGui.NextColumn();
+            ImGui.Text("染剂"); ImGui.NextColumn();
 
             if (!isUnused)
             {
-                ImGui.Text("Set Position"); ImGui.NextColumn();
+                ImGui.Text("设置位置"); ImGui.NextColumn();
             }
 
             ImGui.Separator();
@@ -540,11 +540,11 @@ namespace MakePlacePlugin.Gui
 
                         ImGui.SameLine();
 
-                        if (ImGui.Button("Set" + "##ScreenItem" + i.ToString()))
+                        if (ImGui.Button("设置" + "##ScreenItem" + i.ToString()))
                         {
                             if (!IsDecorMode() || !IsRotateMode())
                             {
-                                LogError("Unable to set position while not in rotate layout mode");
+                                LogError("无法在规划->旋转模式之外设置物件位置");
                                 continue;
                             }
 

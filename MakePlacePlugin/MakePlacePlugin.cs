@@ -112,7 +112,7 @@ namespace MakePlacePlugin
 
             CommandManager.AddHandler("/makeplace", new CommandInfo(CommandHandler)
             {
-                HelpMessage = "load config window."
+                HelpMessage = "载入配置窗口."
             });
             Gui = new PluginUi(this);
             ClientState.TerritoryChanged += TerritoryChanged;
@@ -122,7 +122,7 @@ namespace MakePlacePlugin
             Memory.Init(Scanner);
             LayoutManager = new SaveLayoutManager(this, ChatGui, Config);
 
-            PluginLog.Log("MakePlace Plugin v2.18 initialized");
+            PluginLog.Log("MakePlace Plugin v2.18 初始化完毕");
         }
         public void Initialize()
         {
@@ -239,13 +239,13 @@ namespace MakePlacePlugin
 
                 if (ItemsToPlace.Count == 0)
                 {
-                    Log("Finished applying layout");
+                    Log("应用布局完毕");
                 }
 
             }
             catch (Exception e)
             {
-                LogError($"Error: {e.Message}", e.StackTrace);
+                LogError($"错误: {e.Message}", e.StackTrace);
             }
 
             CurrentlyPlacingItems = false;
@@ -257,13 +257,13 @@ namespace MakePlacePlugin
             if (!IsDecorMode() || !IsRotateMode())
 
             {
-                LogError("Unable to set position outside of Rotate Layout mode");
+                LogError("无法在规划->旋转模式之外设置物件位置");
                 return;
             }
 
             if (rowItem.ItemStruct == IntPtr.Zero) return;
 
-            Log("Placing " + rowItem.Name);
+            Log("正在放置 " + rowItem.Name);
 
             var MemInstance = Memory.Instance;
 
@@ -292,12 +292,12 @@ namespace MakePlacePlugin
         {
             if (CurrentlyPlacingItems)
             {
-                Log($"Already placing items");
+                Log($"已经在放置物品!");
                 return;
             }
 
             CurrentlyPlacingItems = true;
-            Log($"Applying layout with interval of {Config.LoadInterval}ms");
+            Log($"正在应用布局, 放置间隔为 {Config.LoadInterval}ms");
 
             ItemsToPlace.Clear();
 
@@ -466,7 +466,7 @@ namespace MakePlacePlugin
 
             if (row == null)
             {
-                LogError("Cannot identify territory");
+                LogError("无法识别地形ID");
                 return;
             }
 
@@ -647,7 +647,7 @@ namespace MakePlacePlugin
                 LoadInterior();
             }
 
-            Log(String.Format("Loaded {0} furniture items", itemList.Count));
+            Log(String.Format("加载了 {0} 件家具", itemList.Count));
 
             Config.HiddenScreenItemHistory = new List<int>();
             var territoryTypeId = ClientState.TerritoryType;

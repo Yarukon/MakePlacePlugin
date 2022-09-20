@@ -74,10 +74,10 @@ namespace MakePlacePlugin
         {
             return Size switch
             {
-                0 => "Small",
-                1 => "Medium",
-                2 => "Large",
-                _ => "Apartment"
+                0 => "小",
+                1 => "中",
+                2 => "大",
+                _ => "公寓"
             };
         }
     }

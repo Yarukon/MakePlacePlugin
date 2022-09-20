@@ -15,15 +15,15 @@ namespace MakePlacePlugin
         {
             return partsType switch
             {
-                ExteriorPartsType.Roof => "Roof",
-                ExteriorPartsType.Walls => "Exterior Wall",
-                ExteriorPartsType.Windows => "Window",
-                ExteriorPartsType.Door => "Door",
-                ExteriorPartsType.RoofOpt => "Roof Decor",
-                ExteriorPartsType.WallOpt => "Exterior Wall Decor",
+                ExteriorPartsType.Roof => "天花板",
+                ExteriorPartsType.Walls => "外墙",
+                ExteriorPartsType.Windows => "窗户",
+                ExteriorPartsType.Door => "门",
+                ExteriorPartsType.RoofOpt => "屋顶装饰",
+                ExteriorPartsType.WallOpt => "外墙装饰",
                 ExteriorPartsType.SignOpt => "Placard",
-                ExteriorPartsType.Fence => "Fence",
-                _ => "Unknown"
+                ExteriorPartsType.Fence => "栅栏",
+                _ => "未知"
             };
         }
 
@@ -31,12 +31,12 @@ namespace MakePlacePlugin
         {
             return partsType switch
             {
-                InteriorPartsType.Walls => "Wall",
-                InteriorPartsType.Windows => "Window",
-                InteriorPartsType.Door => "Door",
-                InteriorPartsType.Floor => "Floor",
-                InteriorPartsType.Light => "Light",
-                _ => "Unknown"
+                InteriorPartsType.Walls => "墙壁",
+                InteriorPartsType.Windows => "窗户",
+                InteriorPartsType.Door => "门",
+                InteriorPartsType.Floor => "地板",
+                InteriorPartsType.Light => "灯具",
+                _ => "未知"
             };
         }
 
@@ -44,11 +44,11 @@ namespace MakePlacePlugin
         {
             return floor switch
             {
-                InteriorFloor.Ground => "Ground Floor",
-                InteriorFloor.Basement => "Basement",
-                InteriorFloor.Upstairs => "Upper Floor",
-                InteriorFloor.External => "Main",
-                _ => "Unknown"
+                InteriorFloor.Ground => "1楼",
+                InteriorFloor.Basement => "地下室",
+                InteriorFloor.Upstairs => "2楼",
+                InteriorFloor.External => "主厅",
+                _ => "未知"
             };
         }
 
