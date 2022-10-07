@@ -299,7 +299,7 @@ namespace MakePlacePlugin.Gui
 
             ImGui.SameLine();
 
-            ImGui.PushItemWidth(100);
+            ImGui.PushItemWidth(50);
             if (ImGui.InputInt("##IntervalRndMin", ref Config.LoadIntervalRndMin, 0))
             {
                 Config.Save();
@@ -312,7 +312,7 @@ namespace MakePlacePlugin.Gui
 
             ImGui.SameLine();
 
-            ImGui.PushItemWidth(100);
+            ImGui.PushItemWidth(50);
             if (ImGui.InputInt("##IntervalRndMax", ref Config.LoadIntervalRndMax, 0))
             {
                 Config.Save();
