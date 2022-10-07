@@ -19,6 +19,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Numerics;
+using System.Runtime.ConstrainedExecution;
 using System.Runtime.InteropServices;
 using System.Threading;
 
@@ -205,6 +206,9 @@ namespace MakePlacePlugin
             return Memory.Instance.HousingStructure->Mode == HousingLayoutMode.Rotate;
         }
 
+        // 固定下来, 反正这玩意也不要求什么严苛的真随机
+        public static readonly Random rnd = new();
+
         public unsafe void PlaceItems()
         {
 
@@ -232,7 +236,7 @@ namespace MakePlacePlugin
 
                     if (Config.LoadInterval > 0)
                     {
-                        Thread.Sleep(Config.LoadInterval);
+                        Thread.Sleep(Config.LoadInterval + rnd.Next(Config.LoadIntervalRndMin, Config.LoadIntervalRndMax));
                     }
 
                 }
