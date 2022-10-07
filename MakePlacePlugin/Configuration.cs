@@ -28,6 +28,9 @@ namespace MakePlacePlugin
         public int LocationId = 0;
         public int LoadInterval = 400;
 
+        public int LoadIntervalRndMin = 0;
+        public int LoadIntervalRndMax = 500;
+
         public string SaveLocation = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile).Replace('\\', '/') + "/MakePlace/Save/save.json";
 
         #region Init and Save

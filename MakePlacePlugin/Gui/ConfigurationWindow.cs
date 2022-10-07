@@ -287,7 +287,7 @@ namespace MakePlacePlugin.Gui
             }
             ImGui.SameLine();
             ImGui.Text("插件 → 游戏           ");
-            ImGui.SameLine();
+            // ImGui.SameLine();
 
             ImGui.PushItemWidth(100);
             if (ImGui.InputInt("放置间隔 (ms)", ref Config.LoadInterval))
@@ -296,6 +296,33 @@ namespace MakePlacePlugin.Gui
             }
             ImGui.PopItemWidth();
             if (Config.ShowTooltips && ImGui.IsItemHovered()) ImGui.SetTooltip("应用布局时家具放置之间的时间间隔. 如果设定过低 (例如 200 ms), 一些家具的放置可能会被跳过.");
+
+            ImGui.SameLine();
+
+            ImGui.PushItemWidth(50);
+            if (ImGui.InputInt("##IntervalRndMin", ref Config.LoadIntervalRndMin, 0))
+            {
+                Config.Save();
+            }
+            ImGui.PopItemWidth();
+
+            ImGui.SameLine();
+
+            ImGui.Text(" - ");
+
+            ImGui.SameLine();
+
+            ImGui.PushItemWidth(50);
+            if (ImGui.InputInt("##IntervalRndMax", ref Config.LoadIntervalRndMax, 0))
+            {
+                Config.Save();
+            }
+            ImGui.PopItemWidth();
+
+            ImGui.SameLine();
+
+            ImGui.Text("随机放置间隔范围 (ms)");
+            if (Config.ShowTooltips && ImGui.IsItemHovered()) ImGui.SetTooltip("可以在原有的放置间隔上增加随机数, 防范过于规整的间隔, 全部设为0为禁用.");
 
             ImGui.Dummy(new Vector2(0, 15));
             Config.Save();
