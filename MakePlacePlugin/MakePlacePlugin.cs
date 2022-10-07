@@ -301,7 +301,7 @@ namespace MakePlacePlugin
             }
 
             CurrentlyPlacingItems = true;
-            Log($"正在应用布局, 放置间隔为 {Config.LoadInterval}ms");
+            Log($"正在应用布局, 放置间隔为 {Config.LoadInterval}ms, 随机范围为 {Config.LoadIntervalRndMin}ms - {Config.LoadIntervalRndMax}ms");
 
             ItemsToPlace.Clear();
 
