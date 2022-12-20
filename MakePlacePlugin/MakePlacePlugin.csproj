@@ -2,11 +2,11 @@
 
 	<PropertyGroup>
 		<DalamudLibPath>..\..\DalamudDep\</DalamudLibPath>
-		<PluginVersion>2.18</PluginVersion>
+		<PluginVersion>2.18.1</PluginVersion>
 	</PropertyGroup>
 
 	<PropertyGroup>
-		<TargetFramework>net5.0-windows</TargetFramework>
+		<TargetFramework>net6.0-windows</TargetFramework>
 		<LangVersion>latest</LangVersion>
 		<AssemblyTitle>MakePlacePlugin</AssemblyTitle>
 		<Product>MakePlacePlugin</Product>

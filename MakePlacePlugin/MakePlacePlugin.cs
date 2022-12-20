@@ -276,7 +276,6 @@ namespace MakePlacePlugin
 
             SelectItem(rowItem.ItemStruct);
 
-
             Vector3 position = new Vector3(rowItem.X, rowItem.Y, rowItem.Z);
             Vector3 rotation = new Vector3();
 
