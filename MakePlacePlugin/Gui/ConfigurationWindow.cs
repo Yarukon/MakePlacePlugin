@@ -1,10 +1,12 @@
 ﻿using Dalamud.Utility;
+using Dalamud.Interface.ImGuiFileDialog;
 using ImGuiNET;
 using Lumina.Excel.GeneratedSheets;
 using MakePlacePlugin.Objects;
 using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Numerics;
 using System.Threading.Tasks;
@@ -23,21 +25,20 @@ namespace MakePlacePlugin.Gui
         private readonly Vector4 PURPLE = new(0.26275f, 0.21569f, 0.56863f, 1f);
         private readonly Vector4 PURPLE_ALPHA = new(0.26275f, 0.21569f, 0.56863f, 0.5f);
 
+        private FileDialogManager FileDialogManager { get; }
+
         public ConfigurationWindow(MakePlacePlugin plugin) : base(plugin)
         {
-
+            this.FileDialogManager = new FileDialogManager
+            {
+                AddedWindowFlags = ImGuiWindowFlags.NoCollapse | ImGuiWindowFlags.NoDocking,
+            };
         }
 
-        protected override void DrawUi()
+        protected void DrawAllUi()
         {
-            ImGui.PushStyleColor(ImGuiCol.TitleBgActive, PURPLE);
-            ImGui.PushStyleColor(ImGuiCol.ButtonHovered, PURPLE_ALPHA);
-            ImGui.PushStyleColor(ImGuiCol.ButtonActive, PURPLE_ALPHA);
-            ImGui.SetNextWindowSize(new Vector2(530, 450), ImGuiCond.FirstUseEver);
             if (!ImGui.Begin($"{Plugin.Name}", ref WindowVisible, ImGuiWindowFlags.NoScrollWithMouse))
             {
-                ImGui.PopStyleColor(3);
-                ImGui.End();
                 return;
             }
             if (ImGui.BeginChild("##SettingsRegion"))
@@ -89,8 +90,19 @@ namespace MakePlacePlugin.Gui
                 ImGui.EndChild();
             }
 
-            ImGui.PopStyleColor(3);
+            this.FileDialogManager.Draw();
+        }
 
+        protected override void DrawUi()
+        {
+            ImGui.PushStyleColor(ImGuiCol.TitleBgActive, PURPLE);
+            ImGui.PushStyleColor(ImGuiCol.ButtonHovered, PURPLE_ALPHA);
+            ImGui.PushStyleColor(ImGuiCol.ButtonActive, PURPLE_ALPHA);
+            ImGui.SetNextWindowSize(new Vector2(530, 450), ImGuiCond.FirstUseEver);
+
+            DrawAllUi();
+
+            ImGui.PopStyleColor(3);
             ImGui.End();
         }
 
@@ -155,24 +167,56 @@ namespace MakePlacePlugin.Gui
             ImGui.TextUnformatted("显示工具栏");
 
             ImGui.Dummy(new Vector2(0, 10));
-            ImGui.Text("保存/加载文件位置");
-            if (ImGui.InputText("##saveLocation", ref Config.SaveLocation, 150))
+
+
+            ImGui.Text("Layout");
+
+            if (!Config.SaveLocation.IsNullOrEmpty())
             {
-                Config.Save();
+                ImGui.Text($"Current file location: {Config.SaveLocation}");
+
+                if (ImGui.Button("Save"))
+                {
+                    try
+                    {
+                        MakePlacePlugin.LayoutManager.ExportLayout();
+                    }
+                    catch (Exception e)
+                    {
+                        LogError($"Save Error: {e.Message}", e.StackTrace);
+                    }
+                }
+
+                ImGui.SameLine();
+
             }
 
-            if (ImGui.Button("保存"))
+
+            if (ImGui.Button("Save As"))
             {
                 try
                 {
-                    MakePlacePlugin.LayoutManager.ExportLayout();
+                    string saveName = "save";
+                    if (!Config.SaveLocation.IsNullOrEmpty()) saveName = Path.GetFileNameWithoutExtension(Config.SaveLocation);
+
+                    FileDialogManager.SaveFileDialog("Select a Save Location", ".json", saveName, "json", (bool ok, string res) =>
+                    {
+                        if (!ok)
+                        {
+                            return;
+                        }
+
+                        Config.SaveLocation = res;
+                        Config.Save();
+                        MakePlacePlugin.LayoutManager.ExportLayout();
+
+                    }, Path.GetDirectoryName(Config.SaveLocation));
                 }
                 catch (Exception e)
                 {
-                    LogError($"保存错误: {e.Message}", e.StackTrace);
+                    LogError($"Save Error: {e.Message}", e.StackTrace);
                 }
             }
-            if (Config.ShowTooltips && ImGui.IsItemHovered()) ImGui.SetTooltip("保存当前布局到文件");
             ImGui.SameLine();
             ImGui.Text("插件 → 文件           ");
 
@@ -180,31 +224,42 @@ namespace MakePlacePlugin.Gui
             ImGui.SameLine();
             if (ImGui.Button("读取"))
             {
-
                 if (!IsDecorMode())
                 {
                     LogError("无法在规划模式之外加载布局");
                     LogError("(房屋 -> 布置庭具/家具)");
 
                 }
-                else if (!Config.SaveLocation.EndsWith(".json"))
-                {
-                    LogError("错误: Json布局文件未指定");
-                }
                 else
                 {
 
                     try
                     {
-                        SaveLayoutManager.ImportLayout(Config.SaveLocation);
-                        Plugin.MatchLayout();
-                        Config.ResetRecord();
-                        Log(String.Format("导入了 {0} 个物品", Plugin.InteriorItemList.Count + Plugin.ExteriorItemList.Count));
+                        string saveName = "save";
+                        if (!Config.SaveLocation.IsNullOrEmpty()) saveName = Path.GetFileNameWithoutExtension(Config.SaveLocation);
+
+                        FileDialogManager.OpenFileDialog("Select a Layout File", ".json", (bool ok, List<string> res) =>
+                        {
+                            if (!ok)
+                            {
+                                return;
+                            }
+
+                            Config.SaveLocation = res.FirstOrDefault("");
+                            Config.Save();
+
+                            SaveLayoutManager.ImportLayout(Config.SaveLocation);
+                            Plugin.MatchLayout();
+                            Config.ResetRecord();
+                            Log(String.Format("Imported {0} items", Plugin.InteriorItemList.Count + Plugin.ExteriorItemList.Count));
+
+                        }, 1, Path.GetDirectoryName(Config.SaveLocation));
                     }
                     catch (Exception e)
                     {
                         LogError($"读取错误: {e.Message}", e.StackTrace);
                     }
+
                 }
             }
             if (Config.ShowTooltips && ImGui.IsItemHovered()) ImGui.SetTooltip("从文件加载布局");
@@ -331,8 +386,19 @@ namespace MakePlacePlugin.Gui
 
         private void DrawRow(int i, HousingItem housingItem, bool showSetPosition = true, int childIndex = -1)
         {
-            ImGui.Text($"{housingItem.X:N3}, {housingItem.Y:N3}, {housingItem.Z:N3}"); ImGui.NextColumn();
+            if (!housingItem.CorrectLocation) ImGui.PushStyleColor(ImGuiCol.Text, new Vector4(0.5f, 0.5f, 0.5f, 1));
+            ImGui.Text($"{housingItem.X:N3}, {housingItem.Y:N3}, {housingItem.Z:N3}");
+            if (!housingItem.CorrectLocation) ImGui.PopStyleColor();
+
+
+            ImGui.NextColumn();
+
+            if (!housingItem.CorrectRotation) ImGui.PushStyleColor(ImGuiCol.Text, new Vector4(0.5f, 0.5f, 0.5f, 1));
             ImGui.Text($"{housingItem.Rotate:N3}"); ImGui.NextColumn();
+            if (!housingItem.CorrectRotation) ImGui.PopStyleColor();
+
+
+
             var stain = MakePlacePlugin.Data.GetExcelSheet<Stain>().GetRow(housingItem.Stain);
             var colorName = stain?.Name;
 

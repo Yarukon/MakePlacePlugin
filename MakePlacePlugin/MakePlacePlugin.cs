@@ -123,7 +123,7 @@ namespace MakePlacePlugin
             Memory.Init(Scanner);
             LayoutManager = new SaveLayoutManager(this, ChatGui, Config);
 
-            PluginLog.Log("MakePlace Plugin v2.18 初始化完毕");
+            PluginLog.Log("MakePlace Plugin v2.21 初始化完毕");
         }
         public void Initialize()
         {
@@ -232,6 +232,12 @@ namespace MakePlacePlugin
 
                     if (item.ItemStruct == IntPtr.Zero) continue;
 
+                    if (item.CorrectLocation && item.CorrectRotation)
+                    {
+                        Log($"{item.Name} is already correctly placed");
+                        continue;
+                    }
+
                     SetItemPosition(item);
 
                     if (Config.LoadInterval > 0)
@@ -289,6 +295,10 @@ namespace MakePlacePlugin
             }
             MemInstance.WritePosition(position);
             MemInstance.WriteRotation(rotation);
+
+            rowItem.CorrectLocation = true;
+            rowItem.CorrectRotation = true;
+
         }
 
         public void ApplyLayout()
@@ -381,18 +391,23 @@ namespace MakePlacePlugin
 
                 uint furnitureKey = gameObject.housingRowId;
                 HousingItem houseItem = null;
+
+                Vector3 localPosition = new Vector3(gameObject.X, gameObject.Y, gameObject.Z);
+                float localRotation = gameObject.rotation;
+
                 if (indoors)
                 {
                     var furniture = Data.GetExcelSheet<HousingFurniture>().GetRow(furnitureKey);
                     var itemKey = furniture.Item.Value.RowId;
                     houseItem = Utils.GetNearestHousingItem(
                         InteriorItemList.Where(item => item.ItemKey == itemKey && item.Stain == gameObject.color && item.ItemStruct == IntPtr.Zero && IsSelectedFloor(item.Y)),
-                        new Vector3(gameObject.X, gameObject.Y, gameObject.Z)
+                        localPosition
                     );
                 }
                 else
                 {
-                    Vector3 localPosition = Vector3.Transform(new Vector3(gameObject.X, gameObject.Y, gameObject.Z) - PlotLocation.ToVector(), rotateVector);
+                    localPosition = Vector3.Transform(localPosition - PlotLocation.ToVector(), rotateVector);
+                    localRotation += PlotLocation.rotation;
                     var furniture = Data.GetExcelSheet<HousingYardObject>().GetRow(furnitureKey);
                     var itemKey = furniture.Item.Value.RowId;
                     houseItem = Utils.GetNearestHousingItem(
@@ -402,12 +417,17 @@ namespace MakePlacePlugin
 
                 }
 
-
                 if (houseItem == null)
                 {
                     unmatched.Add(gameObject);
                     continue;
                 }
+
+                // check if it's already correctly placed & rotated
+                var locationError = houseItem.GetLocation() - localPosition;
+                houseItem.CorrectLocation = locationError.LengthSquared() < 0.0001;
+                houseItem.CorrectRotation = localRotation - houseItem.Rotate < 0.001;
+
                 houseItem.ItemStruct = (IntPtr)gameObject.Item;
             }
 
@@ -422,6 +442,8 @@ namespace MakePlacePlugin
 
 
                 Item item;
+                Vector3 localPosition = new Vector3(gameObject.X, gameObject.Y, gameObject.Z);
+                float localRotation = gameObject.rotation;
 
                 if (indoors)
                 {
@@ -434,7 +456,9 @@ namespace MakePlacePlugin
                 }
                 else
                 {
-                    Vector3 localPosition = Vector3.Transform(new Vector3(gameObject.X, gameObject.Y, gameObject.Z) - PlotLocation.ToVector(), rotateVector);
+                    localPosition = Vector3.Transform(localPosition - PlotLocation.ToVector(), rotateVector);
+                    localRotation += PlotLocation.rotation;
+
                     var furniture = Data.GetExcelSheet<HousingYardObject>().GetRow(furnitureKey);
                     item = furniture.Item.Value;
                     houseItem = Utils.GetNearestHousingItem(
@@ -455,8 +479,15 @@ namespace MakePlacePlugin
                     continue;
                 }
 
-                houseItem.ItemStruct = (IntPtr)gameObject.Item;
+                // check if it's already correctly placed & rotated
+                var locationError = houseItem.GetLocation() - localPosition;
+                houseItem.CorrectLocation = locationError.LengthSquared() < 0.0001;
+                houseItem.CorrectRotation = localRotation - houseItem.Rotate < 0.001;
+
                 houseItem.DyeMatch = false;
+
+                houseItem.ItemStruct = (IntPtr)gameObject.Item;
+
             }
 
         }
