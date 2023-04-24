@@ -234,7 +234,7 @@ namespace MakePlacePlugin
 
                     if (item.CorrectLocation && item.CorrectRotation)
                     {
-                        Log($"{item.Name} is already correctly placed");
+                        Log($"{item.Name} 已经在正确的位置上了, 跳过放置!");
                         continue;
                     }
 

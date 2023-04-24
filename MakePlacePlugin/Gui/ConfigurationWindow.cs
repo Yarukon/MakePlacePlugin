@@ -169,13 +169,13 @@ namespace MakePlacePlugin.Gui
             ImGui.Dummy(new Vector2(0, 10));
 
 
-            ImGui.Text("Layout");
+            ImGui.Text("布局");
 
             if (!Config.SaveLocation.IsNullOrEmpty())
             {
-                ImGui.Text($"Current file location: {Config.SaveLocation}");
+                ImGui.Text($"当前文件位置: {Config.SaveLocation}");
 
-                if (ImGui.Button("Save"))
+                if (ImGui.Button("保存"))
                 {
                     try
                     {
@@ -183,7 +183,7 @@ namespace MakePlacePlugin.Gui
                     }
                     catch (Exception e)
                     {
-                        LogError($"Save Error: {e.Message}", e.StackTrace);
+                        LogError($"保存错误: {e.Message}", e.StackTrace);
                     }
                 }
 
@@ -192,14 +192,14 @@ namespace MakePlacePlugin.Gui
             }
 
 
-            if (ImGui.Button("Save As"))
+            if (ImGui.Button("另存为"))
             {
                 try
                 {
                     string saveName = "save";
                     if (!Config.SaveLocation.IsNullOrEmpty()) saveName = Path.GetFileNameWithoutExtension(Config.SaveLocation);
 
-                    FileDialogManager.SaveFileDialog("Select a Save Location", ".json", saveName, "json", (bool ok, string res) =>
+                    FileDialogManager.SaveFileDialog("选择要保存到的位置", ".json", saveName, "json", (bool ok, string res) =>
                     {
                         if (!ok)
                         {
@@ -238,7 +238,7 @@ namespace MakePlacePlugin.Gui
                         string saveName = "save";
                         if (!Config.SaveLocation.IsNullOrEmpty()) saveName = Path.GetFileNameWithoutExtension(Config.SaveLocation);
 
-                        FileDialogManager.OpenFileDialog("Select a Layout File", ".json", (bool ok, List<string> res) =>
+                        FileDialogManager.OpenFileDialog("选择一个布局文件", ".json", (bool ok, List<string> res) =>
                         {
                             if (!ok)
                             {
@@ -251,7 +251,7 @@ namespace MakePlacePlugin.Gui
                             SaveLayoutManager.ImportLayout(Config.SaveLocation);
                             Plugin.MatchLayout();
                             Config.ResetRecord();
-                            Log(String.Format("Imported {0} items", Plugin.InteriorItemList.Count + Plugin.ExteriorItemList.Count));
+                            Log(String.Format("导入了 {0} 个物品", Plugin.InteriorItemList.Count + Plugin.ExteriorItemList.Count));
 
                         }, 1, Path.GetDirectoryName(Config.SaveLocation));
                     }
@@ -610,7 +610,7 @@ namespace MakePlacePlugin.Gui
 
                 if (housingItem.ItemStruct == IntPtr.Zero) continue;
 
-                var itemStruct = (HousingItemStruct*)housingItem.ItemStruct;
+                var itemStruct = (HousingItemStruct*) housingItem.ItemStruct;
 
                 var itemPos = new Vector3(itemStruct->Position.X, itemStruct->Position.Y, itemStruct->Position.Z);
                 if (Config.HiddenScreenItemHistory.IndexOf(i) >= 0) continue;

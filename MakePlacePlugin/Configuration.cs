@@ -29,7 +29,7 @@ namespace MakePlacePlugin
         public int LoadInterval = 400;
 
         public int LoadIntervalRndMin = 0;
-        public int LoadIntervalRndMax = 500;
+        public int LoadIntervalRndMax = 300;
 
         public string SaveLocation = null;
 

@@ -21,13 +21,11 @@ namespace MakePlacePlugin
         {
             try
             {
-                HousingModulePtr = scanner.GetStaticAddressFromSig("40 53 48 83 EC 20 33 DB 48 39 1D ?? ?? ?? ?? 75 2C 45 33 C0 33 D2 B9 ?? ?? ?? ?? E8 ?? ?? ?? ?? 48 85 C0 74 11 48 8B C8 E8 ?? ?? ?? ?? 48 89 05 ?? ?? ?? ?? EB 07");
+                HousingModulePtr = scanner.GetStaticAddressFromSig("40 ?? 48 ?? ?? ?? 33 ?? 48 39 1D ?? ?? ?? ?? 75 ?? 45");
                 LayoutWorldPtr = scanner.GetStaticAddressFromSig("48 8B 0D ?? ?? ?? ?? 48 85 C9 74 ?? 48 8B 49 40 E9 ?? ?? ?? ??");
-
 
                 var getInventoryContainerPtr = scanner.ScanText("E8 ?? ?? ?? ?? 8B 55 BB");
                 GetInventoryContainer = Marshal.GetDelegateForFunctionPointer<GetInventoryContainerDelegate>(getInventoryContainerPtr);
-
             }
             catch (Exception e)
             {
