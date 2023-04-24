@@ -31,9 +31,6 @@ namespace MakePlacePlugin
         public int LoadIntervalRndMin = 0;
         public int LoadIntervalRndMax = 500;
 
-        public int LoadIntervalRndMin = 0;
-        public int LoadIntervalRndMax = 500;
-
         public string SaveLocation = null;
 
         #region Init and Save
