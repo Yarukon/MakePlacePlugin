@@ -249,6 +249,7 @@ namespace MakePlacePlugin.Gui
                             Config.Save();
 
                             SaveLayoutManager.ImportLayout(Config.SaveLocation);
+
                             Plugin.MatchLayout();
                             Config.ResetRecord();
                             Log(String.Format("导入了 {0} 个物品", Plugin.InteriorItemList.Count + Plugin.ExteriorItemList.Count));
@@ -269,29 +270,36 @@ namespace MakePlacePlugin.Gui
 
             ImGui.Dummy(new Vector2(0, 15));
 
-            ImGui.Text("选中的楼层");
+            bool noFloors = Memory.Instance.IsOutdoors() || Plugin.Layout.houseSize.Equals("Apartment");
 
-            if (ImGui.Checkbox("地下室", ref Config.Basement))
+            if (!noFloors)
             {
-                Plugin.MatchLayout();
-                Config.Save();
-            }
-            ImGui.SameLine(); ImGui.Dummy(new Vector2(10, 0)); ImGui.SameLine();
 
-            if (ImGui.Checkbox("1楼", ref Config.GroundFloor))
-            {
-                Plugin.MatchLayout();
-                Config.Save();
-            }
-            ImGui.SameLine(); ImGui.Dummy(new Vector2(10, 0)); ImGui.SameLine();
+                ImGui.Text("Selected Floors");
 
-            if (ImGui.Checkbox("2楼", ref Config.UpperFloor))
-            {
-                Plugin.MatchLayout();
-                Config.Save();
-            }
+                if (ImGui.Checkbox("地下室", ref Config.Basement))
+                {
+                    Plugin.MatchLayout();
+                    Config.Save();
+                }
+                ImGui.SameLine(); ImGui.Dummy(new Vector2(10, 0)); ImGui.SameLine();
 
-            ImGui.Dummy(new Vector2(0, 15));
+                if (ImGui.Checkbox("1楼", ref Config.GroundFloor))
+                {
+                    Plugin.MatchLayout();
+                    Config.Save();
+                }
+                ImGui.SameLine(); ImGui.Dummy(new Vector2(10, 0)); ImGui.SameLine();
+
+                if (Plugin.Layout.hasUpperFloor() && ImGui.Checkbox("2楼", ref Config.UpperFloor))
+                {
+                    Plugin.MatchLayout();
+                    Config.Save();
+                }
+
+                ImGui.Dummy(new Vector2(0, 15));
+
+            }
 
             ImGui.Text("布局操作");
 

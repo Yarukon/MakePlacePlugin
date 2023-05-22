@@ -123,7 +123,7 @@ namespace MakePlacePlugin
             Memory.Init(Scanner);
             LayoutManager = new SaveLayoutManager(this, ChatGui, Config);
 
-            PluginLog.Log("MakePlace Plugin v2.21 初始化完毕");
+            PluginLog.Log("MakePlace Plugin v2.22 初始化完毕");
         }
         public void Initialize()
         {
@@ -612,9 +612,16 @@ namespace MakePlacePlugin
 
         public bool IsSelectedFloor(float y)
         {
+            if (Memory.Instance.IsOutdoors() || Layout.houseSize.Equals("Apartment")) return true;
+
             if (y < -0.001) return Config.Basement;
             if (y >= -0.001 && y < 6.999) return Config.GroundFloor;
-            if (y >= 6.999) return Config.UpperFloor;
+
+            if (y >= 6.999)
+            {
+                if (Layout.hasUpperFloor()) return Config.UpperFloor;
+                else return Config.GroundFloor;
+            }
 
             return false;
         }
