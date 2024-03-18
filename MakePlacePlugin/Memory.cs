@@ -7,6 +7,8 @@ using Dalamud.Game;
 using Dalamud.Logging;
 using Dalamud.Plugin;
 using FFXIVClientStructs.FFXIV.Client.Game;
+using FFXIVClientStructs.FFXIV.Client.Game.MJI;
+using Lumina.Excel.GeneratedSheets;
 using static MakePlacePlugin.MakePlacePlugin;
 
 namespace MakePlacePlugin
@@ -17,19 +19,20 @@ namespace MakePlacePlugin
         public static GetInventoryContainerDelegate GetInventoryContainer;
         public delegate InventoryContainer* GetInventoryContainerDelegate(IntPtr inventoryManager, InventoryType inventoryType);
 
-        private Memory(SigScanner scanner)
+        private Memory()
         {
             try
             {
-                HousingModulePtr = scanner.GetStaticAddressFromSig("40 ?? 48 ?? ?? ?? 33 ?? 48 39 1D ?? ?? ?? ?? 75 ?? 45");
-                LayoutWorldPtr = scanner.GetStaticAddressFromSig("48 8B 0D ?? ?? ?? ?? 48 85 C9 74 ?? 48 8B 49 40 E9 ?? ?? ?? ??");
+                HousingModulePtr = DalamudApi.SigScanner.GetStaticAddressFromSig("40 53 48 83 EC 20 33 DB 48 39 1D ?? ?? ?? ?? 75 2C 45 33 C0 33 D2 B9 ?? ?? ?? ?? E8 ?? ?? ?? ?? 48 85 C0 74 11 48 8B C8 E8 ?? ?? ?? ?? 48 89 05 ?? ?? ?? ?? EB 07");
+                LayoutWorldPtr = DalamudApi.SigScanner.GetStaticAddressFromSig("48 8B 0D ?? ?? ?? ?? 48 85 C9 74 ?? 48 8B 49 40 E9 ?? ?? ?? ??");
 
-                var getInventoryContainerPtr = scanner.ScanText("E8 ?? ?? ?? ?? 8B 55 BB");
+
+                var getInventoryContainerPtr = DalamudApi.SigScanner.ScanText("E8 ?? ?? ?? ?? 8B 55 BB");
                 GetInventoryContainer = Marshal.GetDelegateForFunctionPointer<GetInventoryContainerDelegate>(getInventoryContainerPtr);
             }
             catch (Exception e)
             {
-                PluginLog.Log(e, "Could not load housing memory!!");
+                DalamudApi.PluginLog.Error(e, "Could not load housing memory!!");
             }
         }
 
@@ -45,20 +48,14 @@ namespace MakePlacePlugin
 
 
 
-        public static void Init(SigScanner scanner)
+        public static void Init()
         {
-            Instance = new Memory(scanner);
+            Instance = new Memory();
         }
 
         public static InventoryContainer* GetContainer(InventoryType inventoryType)
         {
             return InventoryManager.Instance()->GetInventoryContainer(inventoryType);
-        }
-
-        public unsafe InteriorFloor CurrentFloor()
-        {
-            if (HousingModule->currentTerritory == null || HousingModule->IsOutdoors()) return InteriorFloor.None;
-            return HousingModule->CurrentFloor();
         }
 
         public uint GetTerritoryTypeId()
@@ -67,9 +64,45 @@ namespace MakePlacePlugin
             return manager.TerritoryTypeId;
         }
 
+        public bool HasUpperFloor()
+        {
+            var houseSize = GetIndoorHouseSize();
+            return houseSize.Equals("Medium") || houseSize.Equals("Large");
+        }
+
+        public string GetIndoorHouseSize()
+        {
+            var territoryId = Memory.Instance.GetTerritoryTypeId();
+            var row = DalamudApi.DataManager.GetExcelSheet<TerritoryType>().GetRow(territoryId);
+
+            if (row == null) return null;
+
+            var placeName = row.Name.ToString();
+            var sizeName = placeName.Substring(1, 3);
+
+            switch (sizeName)
+            {
+                case "1i1":
+                    return "Small";
+
+                case "1i2":
+                    return "Medium";
+
+                case "1i3":
+                    return "Large";
+
+                case "1i4":
+                    return "Apartment";
+
+                default:
+                    return null;
+            }
+        }
+
         public float GetInteriorLightLevel()
         {
-            if (IsOutdoors()) return 0f;
+
+            if (GetCurrentTerritory() != HousingArea.Indoors) return 0f;
             if (!GetActiveLayout(out var manager)) return 0f;
             if (!manager.IndoorAreaData.HasValue) return 0f;
             return manager.IndoorAreaData.Value.LightLevel;
@@ -77,7 +110,7 @@ namespace MakePlacePlugin
 
         public CommonFixture[] GetInteriorCommonFixtures(int floorId)
         {
-            if (IsOutdoors()) return new CommonFixture[0];
+            if (GetCurrentTerritory() != HousingArea.Indoors) return new CommonFixture[0];
             if (!GetActiveLayout(out var manager)) return new CommonFixture[0];
             if (!manager.IndoorAreaData.HasValue) return new CommonFixture[0];
             var floor = manager.IndoorAreaData.Value.GetFloor(floorId);
@@ -102,7 +135,7 @@ namespace MakePlacePlugin
 
         public CommonFixture[] GetExteriorCommonFixtures(int plotId)
         {
-            if (IsIndoors()) return new CommonFixture[0];
+            if (GetCurrentTerritory() != HousingArea.Outdoors) return new CommonFixture[0];
             if (!GetHousingController(out var controller)) return new CommonFixture[0];
             var home = controller.Houses(plotId);
 
@@ -171,6 +204,23 @@ namespace MakePlacePlugin
             return placedObjects;
         }
 
+        public unsafe bool TryGetIslandGameObjectList(out List<HousingGameObject> objects)
+        {
+            objects = new List<HousingGameObject>();
+
+            var manager = (MjiManagerExtended*)MJIManager.Instance();
+            var objectManager = manager->ObjectManager;
+            var furnManager = objectManager->FurnitureManager;
+
+            for (int i = 0; i < 200; i++)
+            {
+                var objPtr = (HousingGameObject*)furnManager->Objects[i];
+                if (objPtr == null) continue;
+                objects.Add(*objPtr);
+            }
+            return true;
+        }
+
         public unsafe bool TryGetNameSortedHousingGameObjectList(out List<HousingGameObject> objects)
         {
             objects = null;
@@ -180,11 +230,13 @@ namespace MakePlacePlugin
                 return false;
 
             objects = new List<HousingGameObject>();
+
             for (var i = 0; i < 400; i++)
             {
                 var oPtr = HousingModule->GetCurrentManager()->Objects[i];
                 if (oPtr == 0)
                     continue;
+
                 var o = *(HousingGameObject*)oPtr;
 
                 objects.Add(o);
@@ -227,18 +279,41 @@ namespace MakePlacePlugin
             return true;
         }
 
-        public unsafe bool IsOutdoors()
+        public enum HousingArea
         {
-            if (HousingModule == null) return false;
-            return HousingModule->IsOutdoors();
+            Indoors,
+            Outdoors,
+            Island,
+            None
         }
 
-        public unsafe bool IsIndoors()
+        public unsafe HousingArea GetCurrentTerritory()
         {
-            if (HousingModule == null) return false;
-            return HousingModule->IsIndoors();
+            var territoryRow = DalamudApi.DataManager.GetExcelSheet<TerritoryType>().GetRow(GetTerritoryTypeId());
+            if (territoryRow == null)
+            {
+                LogError("Cannot identify territory");
+                return HousingArea.None;
+            }
+
+            if (territoryRow.Name.ToString().Equals("h1m2"))
+            {
+                return HousingArea.Island;
+            }
+
+            if (HousingModule == null) return HousingArea.None;
+
+            if (HousingModule->IsOutdoors()) return HousingArea.Outdoors;
+            else return HousingArea.Indoors;
         }
 
+        public unsafe bool IsHousingMode()
+        {
+            if (HousingStructure == null)
+                return false;
+            
+            return HousingStructure->Mode != HousingLayoutMode.None;
+        }
 
         /// <summary>
         /// Checks if you can edit a housing item, specifically checks that rotate mode is active.
@@ -274,7 +349,7 @@ namespace MakePlacePlugin
             }
             catch (Exception ex)
             {
-                PluginLog.LogError(ex, "Error occured while writing position!");
+                DalamudApi.PluginLog.Error(ex, "Error occured while writing position!");
             }
         }
 
@@ -295,7 +370,7 @@ namespace MakePlacePlugin
             }
             catch (Exception ex)
             {
-                PluginLog.LogError(ex, "Error occured while writing rotation!");
+                DalamudApi.PluginLog.Error(ex, "Error occured while writing rotation!");
             }
         }
     }

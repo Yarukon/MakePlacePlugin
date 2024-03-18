@@ -2,7 +2,7 @@
 
 	<PropertyGroup>
 		<DalamudLibPath>..\..\DalamudDep\</DalamudLibPath>
-		<PluginVersion>2.23</PluginVersion>
+		<PluginVersion>3.4.2</PluginVersion>
 	</PropertyGroup>
 
 	<PropertyGroup>
@@ -31,7 +31,7 @@
 
 
 	<ItemGroup>
-		<PackageReference Include="DalamudPackager" Version="2.1.11" />
+		<PackageReference Include="DalamudPackager" Version="2.1.12" />
 		<Reference Include="Newtonsoft.Json">
 			<HintPath>$(DalamudLibPath)Newtonsoft.Json.dll</HintPath>
 			<Private>False</Private>

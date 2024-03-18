@@ -16,6 +16,9 @@ using static MakePlacePlugin.MakePlacePlugin;
 using System.Drawing;
 using System.Globalization;
 using System.Text.Json.Serialization;
+using ImGuiNET;
+using FFXIVClientStructs.FFXIV.Client.Game.MJI;
+using System.Xml.Linq;
 
 namespace MakePlacePlugin
 {
@@ -28,21 +31,37 @@ namespace MakePlacePlugin
 
     }
 
-
-    public class Fixture
+    public class BasicItem
     {
-        public string level { get; set; } = "";
-        public string type { get; set; } = "";
         public string name { get; set; } = "";
         public uint itemId { get; set; } = 0;
     }
 
-    public class Furniture
+    public class Fixture : BasicItem
     {
-        public string name { get; set; }
+        public string level { get; set; } = "";
+        public string type { get; set; } = "";
 
-        public uint itemId { get; set; }
+        public Fixture() { }
 
+        public Fixture(string inType)
+        {
+            type = inType;
+        }
+
+        public Fixture(string inType, string inName) : this(inType)
+        {
+            name = inName;
+        }
+
+        public Fixture(string inType, string inName, string inLevel) : this(inType, inName)
+        {
+            level = inLevel;
+        }
+    }
+
+    public class Furniture : BasicItem
+    {
         public Transform transform { get; set; } = new Transform();
 
         public Dictionary<string, object> properties { get; set; } = new Dictionary<string, object>();
@@ -59,6 +78,20 @@ namespace MakePlacePlugin
             }
 
             return Color.Empty;
+        }
+
+        public BasicItem GetMaterial()
+        {
+            if (properties.TryGetValue("material", out object materialObj))
+            {
+                if (materialObj is JsonElement materialJson)
+                {
+                    return materialJson.Deserialize<BasicItem>();
+                }
+
+            }
+
+            return new BasicItem();
         }
 
         int ColorDiff(Color c1, Color c2)
@@ -107,15 +140,6 @@ namespace MakePlacePlugin
 
         public Dictionary<string, dynamic> properties { get; set; } = new Dictionary<string, dynamic>();
 
-        public bool hasBasement()
-        {
-            return houseSize.Equals("Small") || houseSize.Equals("Medium") || houseSize.Equals("Large");
-        }
-
-        public bool hasUpperFloor()
-        {
-            return houseSize.Equals("Medium") || houseSize.Equals("Large");
-        }
     }
 
     public class ObjectToInferredTypesConverter : JsonConverter<object>
@@ -145,15 +169,13 @@ namespace MakePlacePlugin
 
     public class SaveLayoutManager
     {
-        public ChatGui chat;
         public static Configuration Config;
         public static MakePlacePlugin Plugin;
 
         public static List<(Color, uint)> ColorList;
 
-        public SaveLayoutManager(MakePlacePlugin plugin, ChatGui chatGui, Configuration config)
+        public SaveLayoutManager(MakePlacePlugin plugin, Configuration config)
         {
-            chat = chatGui;
             Config = config;
             Plugin = plugin;
         }
@@ -194,7 +216,7 @@ namespace MakePlacePlugin
 
         static HousingItem ConvertToHousingItem(Furniture furniture)
         {
-            var ItemSheet = Data.GetExcelSheet<Item>();
+            var ItemSheet = DalamudApi.DataManager.GetExcelSheet<Item>();
             var itemRow = ItemSheet.FirstOrDefault(row => row.Name.ToString().Equals(furniture.name));
 
             if (itemRow == null) itemRow = ItemSheet.FirstOrDefault(row => row.RowId == furniture.itemId);
@@ -211,6 +233,13 @@ namespace MakePlacePlugin
                 descale(furniture.transform.location[2]), // switch Y & Z axis
                 descale(furniture.transform.location[1]),
                 -QuaternionExtensions.ComputeZAngle(quat));
+
+
+            if (furniture.properties.ContainsKey("material"))
+            {
+                var material = furniture.GetMaterial();
+                houseItem.MaterialItemKey = material.itemId;
+            }
 
             return houseItem;
         }
@@ -251,7 +280,7 @@ namespace MakePlacePlugin
             Layout layout = JsonSerializer.Deserialize<Layout>(jsonString, options);
 
 
-            var StainList = Data.GetExcelSheet<Stain>();
+            var StainList = DalamudApi.DataManager.GetExcelSheet<Stain>();
 
             ColorList = new List<(Color, uint)>();
 
@@ -316,10 +345,99 @@ namespace MakePlacePlugin
             }
         }
 
+        public unsafe static void LoadIslandFixtures()
+        {
+            Plugin.Layout.houseSize = "Island";
+
+            var exterior = Plugin.Layout.exteriorFixture;
+            exterior.Clear();
+
+            var manager = MJIManager.Instance();
+            var state = manager->IslandState;
+
+            string TerrainMatName(byte id)
+            {
+                switch (id)
+                {
+                    case 0:
+                        return "Overgrown";
+                    case 1:
+                        return "Dirt";
+                    case 2:
+                        return "Stone";
+                    case 3:
+                        return "Tiled Brick";
+                    default:
+                        return "";
+                }
+            }
+
+            exterior.Add(new Fixture("Grounds", TerrainMatName(state.GroundsGlamourId)));
+            exterior.Add(new Fixture("Paths", TerrainMatName(state.PathsGlamourId)));
+            exterior.Add(new Fixture("Slopes", TerrainMatName(state.SlopesGlamourId)));
+
+            // TODO: Add Cabin Levels when the IslandState struct is fixed
+
+            string ToRoman(byte id)
+            {
+                switch (id)
+                {
+                    case 1:
+                        return "I";
+                    case 2:
+                        return "II";
+                    case 3:
+                        return "III";
+                    case 4:
+                        return "IV";
+                    case 5:
+                        return "V";
+                    case 6:
+                        return "VI";
+                    default:
+                        return "";
+                }
+            }
+
+            var BuildingSheet = DalamudApi.DataManager.GetExcelSheet<MJIBuilding>();
+
+            var workshop = state.Workshops;
+            for (int i = 0; i < 4; i++)
+            {
+                if (workshop.PlaceId[i] == 0) continue;
+
+                var fixture = new Fixture("Facility");
+                fixture.level = "Facility " + ToRoman(workshop.PlaceId[i]);
+                fixture.name = BuildingSheet.GetRow(1, workshop.GlamourLevel[i])?.Name.Value.Text.ToString();
+                exterior.Add(fixture);
+            }
+
+            var granary = state.Granaries;
+            for (int i = 0; i < 4; i++)
+            {
+                if (granary.PlaceId[i] == 0) continue;
+                var fixture = new Fixture("Facility");
+                fixture.level = "Facility " + ToRoman(granary.PlaceId[i]);
+                fixture.name = BuildingSheet.GetRow(2, fixture.itemId)?.Name.Value.Text.ToString();
+                exterior.Add(fixture);
+            }
+
+            var LandmarkSheet = DalamudApi.DataManager.GetExcelSheet<MJILandmark>();
+            for (int i = 0; i < 5; i++)
+            {
+                var id = state.LandmarkIds[i];
+                if (id == 0) continue;
+
+                var fixture = new Fixture("Landmark");
+                fixture.level = "Landmark " + ToRoman((byte)(i + 1));
+                fixture.name = LandmarkSheet.GetRow(id)?.Name.Value.Text.ToString();
+                exterior.Add(fixture);
+            }
+        }
+
         public static void LoadInteriorFixtures()
         {
             var layout = Plugin.Layout;
-
             layout.interiorFixture.Clear();
 
             for (var i = 0; i < IndoorAreaData.FloorMax; i++)
@@ -342,32 +460,14 @@ namespace MakePlacePlugin
                 }
             }
 
+            layout.houseSize = Memory.Instance.GetIndoorHouseSize();
+
             var territoryId = Memory.Instance.GetTerritoryTypeId();
-            var row = Data.GetExcelSheet<TerritoryType>().GetRow(territoryId);
+            var row = DalamudApi.DataManager.GetExcelSheet<TerritoryType>().GetRow(territoryId);
 
             if (row != null)
             {
                 var placeName = row.Name.ToString();
-
-                var sizeName = placeName.Substring(1, 3);
-
-                switch (sizeName)
-                {
-                    case "1i1":
-                        layout.houseSize = "小";
-                        break;
-                    case "1i2":
-                        layout.houseSize = "中";
-                        break;
-                    case "1i3":
-                        layout.houseSize = "大";
-                        break;
-                    case "1i4":
-                        layout.houseSize = "公寓";
-                        break;
-                    default:
-                        break;
-                }
 
                 var district = new Fixture();
                 district.type = "区域";
@@ -425,6 +525,20 @@ namespace MakePlacePlugin
                     furniture.properties.Add("color", $"{cr:X2}{cg:X2}{cb:X2}{ca:X2}");
 
                 }
+                else if (gameObject.MaterialItemKey != 0)
+                {
+                    var item = DalamudApi.DataManager.GetExcelSheet<Item>().GetRow(gameObject.MaterialItemKey);
+                    if (item != null)
+                    {
+                        var basicItem = new BasicItem();
+                        basicItem.name = item.Name.ToString();
+                        basicItem.itemId = gameObject.MaterialItemKey;
+
+                        furniture.properties.Add("material", basicItem);
+                    }
+
+                }
+
 
                 furnitureList.Add(furniture);
             }

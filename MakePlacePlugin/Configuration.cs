@@ -16,35 +16,22 @@ namespace MakePlacePlugin
         public float DrawDistance = 0;
         public List<int> HiddenScreenItemHistory = new List<int>();
         public List<int> GroupingList = new List<int>();
-        public bool PlaceAnywhere = false;
-
+        
         public bool Basement = true;
         public bool GroundFloor = true;
         public bool UpperFloor = true;
 
-
-        public List<string> Tags = new List<string>();
-        public List<bool> TagsSelectList = new List<bool>();
-        public int LocationId = 0;
         public int LoadInterval = 400;
+        public bool ApplyLayout = true;
 
         public int LoadIntervalRndMin = 0;
         public int LoadIntervalRndMax = 300;
 
         public string SaveLocation = null;
 
-        #region Init and Save
-
-        [NonSerialized] private DalamudPluginInterface _pluginInterface;
-
-        public void Initialize(DalamudPluginInterface pluginInterface)
-        {
-            _pluginInterface = pluginInterface;
-        }
-
         public void Save()
         {
-            _pluginInterface.SavePluginConfig(this);
+            DalamudApi.PluginInterface.SavePluginConfig(this);
         }
 
         public void ResetRecord()
@@ -54,6 +41,5 @@ namespace MakePlacePlugin
             Save();
         }
 
-        #endregion
     }
 }

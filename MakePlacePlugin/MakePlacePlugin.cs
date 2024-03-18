@@ -2,65 +2,40 @@
 using Dalamud.Game;
 using Dalamud.Game.ClientState;
 using Dalamud.Game.ClientState.Objects;
+using Dalamud.Game.ClientState.Objects.Types;
 using Dalamud.Game.Command;
 using Dalamud.Game.Gui;
 using Dalamud.Game.Network;
 using Dalamud.IoC;
 using Dalamud.Logging;
 using Dalamud.Plugin;
+using Dalamud.Plugin.Services;
 using FFXIVClientStructs.FFXIV.Client.Game;
+using FFXIVClientStructs.FFXIV.Client.Game.Housing;
+using FFXIVClientStructs.FFXIV.Client.Game.MJI;
+using FFXIVClientStructs.FFXIV.Client.Game.Object;
 using ImGuiScene;
 using Lumina.Excel.GeneratedSheets;
-using Lumina.Text;
-using MakePlacePlugin.Gui;
 using MakePlacePlugin.Objects;
 using MakePlacePlugin.Util;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Numerics;
-using System.Runtime.ConstrainedExecution;
-using System.Runtime.InteropServices;
 using System.Threading;
+using static MakePlacePlugin.Memory;
+using HousingFurniture = Lumina.Excel.GeneratedSheets.HousingFurniture;
 
 namespace MakePlacePlugin
 {
+
     public class MakePlacePlugin : IDalamudPlugin
     {
         public string Name => "MakePlace Plugin";
         public PluginUi Gui { get; private set; }
         public Configuration Config { get; private set; }
 
-        [PluginService]
-        public static CommandManager CommandManager { get; private set; }
-        [PluginService]
-        public static Framework Framework { get; private set; }
-
-        [PluginService]
-        public static DalamudPluginInterface Interface { get; private set; }
-        [PluginService]
-        public static GameGui GameGui { get; private set; }
-        [PluginService]
-        public static ChatGui ChatGui { get; private set; }
-        [PluginService]
-        public static ClientState ClientState { get; private set; }
-        [PluginService]
-        public static DataManager Data { get; private set; }
-
-        [PluginService]
-        public static SigScanner Scanner { get; private set; }
-
-        [PluginService]
-        public static TargetManager TargetMgr { get; private set; }
-
-        [PluginService] public static GameNetwork GameNetwork { get; private set; }
-
-
-        // Texture dictionary for the housing item icons.
-        public readonly Dictionary<ushort, TextureWrap> TextureDictionary = new Dictionary<ushort, TextureWrap>();
-
         public static List<HousingItem> ItemsToPlace = new List<HousingItem>();
-
 
         private delegate bool UpdateLayoutDelegate(IntPtr a1);
         private HookWrapper<UpdateLayoutDelegate> IsSaveLayoutHook;
@@ -87,50 +62,42 @@ namespace MakePlacePlugin
 
         public void Dispose()
         {
-            foreach (var t in this.TextureDictionary)
-                t.Value?.Dispose();
-            TextureDictionary.Clear();
 
             HookManager.Dispose();
 
-            Config.PlaceAnywhere = false;
-            ClientState.TerritoryChanged -= TerritoryChanged;
-            CommandManager.RemoveHandler("/makeplace");
+            DalamudApi.ClientState.TerritoryChanged -= TerritoryChanged;
+            DalamudApi.CommandManager.RemoveHandler("/makeplace");
             Gui?.Dispose();
 
         }
 
-        public MakePlacePlugin(
-            [RequiredVersion("1.0")] DalamudPluginInterface pluginInterface,
-            [RequiredVersion("1.0")] CommandManager commandManager
-        )
+        public MakePlacePlugin(DalamudPluginInterface pi)
         {
-            Config = Interface.GetPluginConfig() as Configuration ?? new Configuration();
-            Config.Initialize(Interface);
+            DalamudApi.Initialize(pi);
+
+            Config = DalamudApi.PluginInterface.GetPluginConfig() as Configuration ?? new Configuration();
             Config.Save();
 
             Initialize();
 
-            CommandManager.AddHandler("/makeplace", new CommandInfo(CommandHandler)
+            DalamudApi.CommandManager.AddHandler("/makeplace", new CommandInfo(CommandHandler)
             {
                 HelpMessage = "载入配置窗口."
             });
             Gui = new PluginUi(this);
-            ClientState.TerritoryChanged += TerritoryChanged;
+            DalamudApi.ClientState.TerritoryChanged += TerritoryChanged;
 
 
-            HousingData.Init(Data, this);
-            Memory.Init(Scanner);
-            LayoutManager = new SaveLayoutManager(this, ChatGui, Config);
+            HousingData.Init(this);
+            Memory.Init();
+            LayoutManager = new SaveLayoutManager(this, Config);
 
-            PluginLog.Log("MakePlace Plugin v2.23 初始化完毕");
+            DalamudApi.PluginLog.Info("MakePlace Plugin v3.4.2 初始化完毕");
         }
         public void Initialize()
         {
 
-            HookManager.Init(Scanner);
-
-            IsSaveLayoutHook = HookManager.Hook<UpdateLayoutDelegate>("40 53 48 83 ec 20 48 8b d9 48 8b 0d ?? ?? ?? ?? e8 ?? ?? ?? ?? 33 d2 48 8b c8 e8 ?? ?? ?? ?? 84 c0 75 7d 38 83 76 01 00 00", IsSaveLayoutDetour);
+            IsSaveLayoutHook = HookManager.Hook<UpdateLayoutDelegate>("40 53 48 83 ec 20 48 8b d9 48 8b 0d ?? ?? ?? ?? e8 ?? ?? ?? ?? 33 d2 48 8b c8 e8 ?? ?? ?? ?? 84 c0 75 7d 38 83 ?? 01 00 00", IsSaveLayoutDetour);
 
             SelectItemHook = HookManager.Hook<SelectItemDelegate>("E8 ?? ?? ?? ?? 48 8B CE E8 ?? ?? ?? ?? 48 8B 6C 24 40 48 8B CE", SelectItemDetour);
 
@@ -142,20 +109,15 @@ namespace MakePlacePlugin
 
             GetYardIndexHook = HookManager.Hook<GetIndexDelegate>("48 89 6c 24 18 56 48 83 ec 20 0f b6 ea 0f b6 f1 84 c9 79 22 0f b6 c1", GetYardIndex);
 
-
         }
 
+        internal delegate ushort GetIndexDelegate(byte type, byte objStruct);
+        internal static HookWrapper<GetIndexDelegate> GetYardIndexHook;
         internal static ushort GetYardIndex(byte plotNumber, byte inventoryIndex)
         {
             var result = GetYardIndexHook.Original(plotNumber, inventoryIndex);
             return result;
         }
-
-
-
-        internal delegate ushort GetIndexDelegate(byte type, byte objStruct);
-        internal static HookWrapper<GetIndexDelegate> GetYardIndexHook;
-
 
         internal delegate IntPtr GetActiveObjectDelegate(IntPtr ObjList, uint index);
 
@@ -177,6 +139,7 @@ namespace MakePlacePlugin
         public delegate void UpdateYardDelegate(IntPtr housingStruct, ushort index);
         private static HookWrapper<UpdateYardDelegate> UpdateYardObjHook;
 
+
         private void UpdateYardObj(IntPtr objectList, ushort index)
         {
             UpdateYardObjHook.Original(objectList, index);
@@ -194,25 +157,10 @@ namespace MakePlacePlugin
         }
 
 
-        public static bool IsDecorMode()
-        {
-            var addon = GameGui.GetAddonByName("HousingGoods", 1);
-
-            return addon != IntPtr.Zero;
-        }
-
-        public unsafe static bool IsRotateMode()
-        {
-            return Memory.Instance.HousingStructure->Mode == HousingLayoutMode.Rotate;
-        }
-
-        // 固定下来, 反正这玩意也不要求什么严苛的真随机
-        public static readonly Random rnd = new();
-
         public unsafe void PlaceItems()
         {
 
-            if (!IsDecorMode() || !IsRotateMode() || ItemsToPlace.Count == 0)
+            if (!Memory.Instance.CanEditItem() || ItemsToPlace.Count == 0)
             {
                 return;
             }
@@ -220,7 +168,7 @@ namespace MakePlacePlugin
             try
             {
 
-                if (Memory.Instance.IsOutdoors())
+                if (Memory.Instance.GetCurrentTerritory() == Memory.HousingArea.Outdoors)
                 {
                     GetPlotLocation();
                 }
@@ -264,8 +212,7 @@ namespace MakePlacePlugin
         unsafe public static void SetItemPosition(HousingItem rowItem)
         {
 
-            if (!IsDecorMode() || !IsRotateMode())
-
+            if (!Memory.Instance.CanEditItem())
             {
                 LogError("无法在规划->旋转模式之外设置物件位置");
                 return;
@@ -287,7 +234,7 @@ namespace MakePlacePlugin
 
             rotation.Y = (float)(rowItem.Rotate * 180 / Math.PI);
 
-            if (MemInstance.IsOutdoors())
+            if (MemInstance.GetCurrentTerritory() == Memory.HousingArea.Outdoors)
             {
                 var rotateVector = Quaternion.CreateFromAxisAngle(Vector3.UnitY, -PlotLocation.rotation);
                 position = Vector3.Transform(position, rotateVector) + PlotLocation.ToVector();
@@ -318,11 +265,7 @@ namespace MakePlacePlugin
 
             List<HousingItem> toBePlaced;
 
-            if (Memory.Instance.IsOutdoors())
-            {
-                toBePlaced = new List<HousingItem>(ExteriorItemList);
-            }
-            else
+            if (Memory.Instance.GetCurrentTerritory() == Memory.HousingArea.Indoors)
             {
                 toBePlaced = new List<HousingItem>();
                 foreach (var houseItem in InteriorItemList)
@@ -332,6 +275,10 @@ namespace MakePlacePlugin
                         toBePlaced.Add(houseItem);
                     }
                 }
+            }
+            else
+            {
+                toBePlaced = new List<HousingItem>(ExteriorItemList);
             }
 
             foreach (var item in toBePlaced)
@@ -353,33 +300,65 @@ namespace MakePlacePlugin
             thread.Start();
         }
 
+        public bool MatchItem(HousingItem item, uint itemKey)
+        {
+            if (item.ItemStruct != IntPtr.Zero) return false;       // this item is already matched. We can skip
+
+            return item.ItemKey == itemKey && IsSelectedFloor(item.Y);
+        }
+
+        public unsafe bool MatchExactItem(HousingItem item, uint itemKey, HousingGameObject obj)
+        {
+            if (!MatchItem(item, itemKey)) return false;
+
+            if (item.Stain != obj.color) return false;
+
+            var matNumber = obj.Item->MaterialManager->MaterialSlot1;
+
+            if (item.MaterialItemKey == 0 && matNumber == 0) return true;
+            else if (item.MaterialItemKey != 0 && matNumber == 0) return false;
+
+            if (!Util.Wallpaper.Map.TryGetValue(matNumber, out var matItemKey)) return true;
+
+            return matItemKey == item.MaterialItemKey;
+
+        }
 
         public unsafe void MatchLayout()
         {
 
-            List<HousingGameObject> allObjects;
+            List<HousingGameObject> allObjects = null;
             Memory Mem = Memory.Instance;
 
-            var indoors = Mem.IsIndoors();
             Quaternion rotateVector = new();
+            var currentTerritory = Mem.GetCurrentTerritory();
 
-            if (indoors)
+            switch (currentTerritory)
             {
-                bool dObjectsLoaded = Mem.TryGetNameSortedHousingGameObjectList(out allObjects);
-                InteriorItemList.ForEach(item =>
-                {
-                    item.ItemStruct = IntPtr.Zero;
-                });
-            }
-            else
-            {
-                GetPlotLocation();
-                allObjects = Mem.GetExteriorPlacedObjects();
-                ExteriorItemList.ForEach(item =>
-                {
-                    item.ItemStruct = IntPtr.Zero;
-                });
-                rotateVector = Quaternion.CreateFromAxisAngle(Vector3.UnitY, PlotLocation.rotation);
+                case HousingArea.Indoors:
+                    Mem.TryGetNameSortedHousingGameObjectList(out allObjects);
+                    InteriorItemList.ForEach(item =>
+                    {
+                        item.ItemStruct = IntPtr.Zero;
+                    });
+                    break;
+
+                case HousingArea.Outdoors:
+                    GetPlotLocation();
+                    allObjects = Mem.GetExteriorPlacedObjects();
+                    ExteriorItemList.ForEach(item =>
+                    {
+                        item.ItemStruct = IntPtr.Zero;
+                    });
+                    rotateVector = Quaternion.CreateFromAxisAngle(Vector3.UnitY, PlotLocation.rotation);
+                    break;
+                case HousingArea.Island:
+                    Mem.TryGetIslandGameObjectList(out allObjects);
+                    ExteriorItemList.ForEach(item =>
+                    {
+                        item.ItemStruct = IntPtr.Zero;
+                    });
+                    break;
             }
 
             List<HousingGameObject> unmatched = new List<HousingGameObject>();
@@ -395,23 +374,26 @@ namespace MakePlacePlugin
                 Vector3 localPosition = new Vector3(gameObject.X, gameObject.Y, gameObject.Z);
                 float localRotation = gameObject.rotation;
 
-                if (indoors)
+                if (currentTerritory == HousingArea.Indoors)
                 {
-                    var furniture = Data.GetExcelSheet<HousingFurniture>().GetRow(furnitureKey);
+                    var furniture = DalamudApi.DataManager.GetExcelSheet<HousingFurniture>().GetRow(furnitureKey);
                     var itemKey = furniture.Item.Value.RowId;
                     houseItem = Utils.GetNearestHousingItem(
-                        InteriorItemList.Where(item => item.ItemKey == itemKey && item.Stain == gameObject.color && item.ItemStruct == IntPtr.Zero && IsSelectedFloor(item.Y)),
+                        InteriorItemList.Where(item => MatchExactItem(item, itemKey, gameObject)),
                         localPosition
                     );
                 }
                 else
                 {
-                    localPosition = Vector3.Transform(localPosition - PlotLocation.ToVector(), rotateVector);
-                    localRotation += PlotLocation.rotation;
-                    var furniture = Data.GetExcelSheet<HousingYardObject>().GetRow(furnitureKey);
+                    if (currentTerritory == HousingArea.Outdoors)
+                    {
+                        localPosition = Vector3.Transform(localPosition - PlotLocation.ToVector(), rotateVector);
+                        localRotation += PlotLocation.rotation;
+                    }
+                    var furniture = DalamudApi.DataManager.GetExcelSheet<HousingYardObject>().GetRow(furnitureKey);
                     var itemKey = furniture.Item.Value.RowId;
                     houseItem = Utils.GetNearestHousingItem(
-                        ExteriorItemList.Where(item => item.ItemKey == itemKey && item.Stain == gameObject.color && item.ItemStruct == IntPtr.Zero && IsSelectedFloor(item.Y)),
+                        ExteriorItemList.Where(item => MatchExactItem(item, itemKey, gameObject)),
                         localPosition
                     );
 
@@ -440,29 +422,30 @@ namespace MakePlacePlugin
                 uint furnitureKey = gameObject.housingRowId;
                 HousingItem houseItem = null;
 
-
                 Item item;
                 Vector3 localPosition = new Vector3(gameObject.X, gameObject.Y, gameObject.Z);
                 float localRotation = gameObject.rotation;
 
-                if (indoors)
+                if (currentTerritory == HousingArea.Indoors)
                 {
-                    var furniture = Data.GetExcelSheet<HousingFurniture>().GetRow(furnitureKey);
+                    var furniture = DalamudApi.DataManager.GetExcelSheet<HousingFurniture>().GetRow(furnitureKey);
                     item = furniture.Item.Value;
                     houseItem = Utils.GetNearestHousingItem(
-                        InteriorItemList.Where(hItem => hItem.ItemKey == item.RowId && hItem.ItemStruct == IntPtr.Zero && IsSelectedFloor(hItem.Y)),
+                        InteriorItemList.Where(hItem => MatchItem(hItem, item.RowId)),
                         new Vector3(gameObject.X, gameObject.Y, gameObject.Z)
                     );
                 }
                 else
                 {
-                    localPosition = Vector3.Transform(localPosition - PlotLocation.ToVector(), rotateVector);
-                    localRotation += PlotLocation.rotation;
-
-                    var furniture = Data.GetExcelSheet<HousingYardObject>().GetRow(furnitureKey);
+                    if (currentTerritory == HousingArea.Outdoors)
+                    {
+                        localPosition = Vector3.Transform(localPosition - PlotLocation.ToVector(), rotateVector);
+                        localRotation += PlotLocation.rotation;
+                    }
+                    var furniture = DalamudApi.DataManager.GetExcelSheet<HousingYardObject>().GetRow(furnitureKey);
                     item = furniture.Item.Value;
                     houseItem = Utils.GetNearestHousingItem(
-                        ExteriorItemList.Where(hItem => hItem.ItemKey == item.RowId && hItem.ItemStruct == IntPtr.Zero && IsSelectedFloor(hItem.Y)),
+                        ExteriorItemList.Where(hItem => MatchItem(hItem, item.RowId)),
                         localPosition
                     );
                 }
@@ -496,7 +479,7 @@ namespace MakePlacePlugin
         {
             var mgr = Memory.Instance.HousingModule->outdoorTerritory;
             var territoryId = Memory.Instance.GetTerritoryTypeId();
-            var row = Data.GetExcelSheet<TerritoryType>().GetRow(territoryId);
+            var row = DalamudApi.DataManager.GetExcelSheet<TerritoryType>().GetRow(territoryId);
 
             if (row == null)
             {
@@ -551,7 +534,7 @@ namespace MakePlacePlugin
                 var item = exteriorItems->GetInventorySlot(i);
                 if (item == null || item->ItemID == 0) continue;
 
-                var itemRow = Data.GetExcelSheet<Item>().GetRow(item->ItemID);
+                var itemRow = DalamudApi.DataManager.GetExcelSheet<Item>().GetRow(item->ItemID);
                 if (itemRow == null) continue;
 
                 var itemInfoIndex = GetYardIndex(mgr->Plot, (byte)i);
@@ -596,9 +579,6 @@ namespace MakePlacePlugin
                     }
                 }
 
-
-
-
                 if (gameObj != null)
                 {
                     housingItem.ItemStruct = (IntPtr)gameObj->Item;
@@ -612,14 +592,14 @@ namespace MakePlacePlugin
 
         public bool IsSelectedFloor(float y)
         {
-            if (Memory.Instance.IsOutdoors() || Layout.houseSize.Equals("Apartment")) return true;
+            if (Memory.Instance.GetCurrentTerritory() != Memory.HousingArea.Indoors || Memory.Instance.GetIndoorHouseSize().Equals("Apartment")) return true;
 
             if (y < -0.001) return Config.Basement;
             if (y >= -0.001 && y < 6.999) return Config.GroundFloor;
 
             if (y >= 6.999)
             {
-                if (Layout.hasUpperFloor()) return Config.UpperFloor;
+                if (Memory.Instance.HasUpperFloor()) return Config.UpperFloor;
                 else return Config.GroundFloor;
             }
 
@@ -628,10 +608,9 @@ namespace MakePlacePlugin
 
         public unsafe void LoadInterior()
         {
-            List<HousingGameObject> dObjects;
-
             SaveLayoutManager.LoadInteriorFixtures();
 
+            List<HousingGameObject> dObjects;
             Memory.Instance.TryGetNameSortedHousingGameObjectList(out dObjects);
 
             InteriorItemList.Clear();
@@ -640,59 +619,87 @@ namespace MakePlacePlugin
             {
                 uint furnitureKey = gameObject.housingRowId;
 
-                var furniture = Data.GetExcelSheet<HousingFurniture>().GetRow(furnitureKey);
+                var furniture = DalamudApi.DataManager.GetExcelSheet<HousingFurniture>().GetRow(furnitureKey);
                 Item item = furniture?.Item?.Value;
 
                 if (item == null) continue;
                 if (item.RowId == 0) continue;
 
-                var x = gameObject.X;
-                var y = gameObject.Y;
-                var z = gameObject.Z;
+                if (!IsSelectedFloor(gameObject.Y)) continue;
 
-                if (!IsSelectedFloor(y)) continue;
-
-                byte stain = gameObject.color;
-                var rotate = gameObject.rotation;
-
-                var housingItem = new HousingItem(
-                    item,
-                    stain,
-                    x,
-                    y,
-                    z,
-                    rotate);
-
+                var housingItem = new HousingItem(item, gameObject);
                 housingItem.ItemStruct = (IntPtr)gameObject.Item;
+
+                if (gameObject.Item != null && gameObject.Item->MaterialManager != null)
+                {
+                    ushort material = gameObject.Item->MaterialManager->MaterialSlot1;
+                    if (material != 0 && Util.Wallpaper.Map.TryGetValue(material, out var matItemKey))
+                    {
+                        housingItem.MaterialItemKey = matItemKey;
+                    }
+                }
 
                 InteriorItemList.Add(housingItem);
             }
 
             Config.Save();
+
         }
 
-        public void LoadLayout()
+
+        public unsafe void LoadIsland()
+        {
+            SaveLayoutManager.LoadIslandFixtures();
+
+            List<HousingGameObject> objects;
+            Memory.Instance.TryGetIslandGameObjectList(out objects);
+            ExteriorItemList.Clear();
+
+            foreach (var gameObject in objects)
+            {
+                uint furnitureKey = gameObject.housingRowId;
+                var furniture = DalamudApi.DataManager.GetExcelSheet<HousingYardObject>().GetRow(furnitureKey);
+                Item item = furniture?.Item?.Value;
+
+                if (item == null) continue;
+                if (item.RowId == 0) continue;
+
+                var housingItem = new HousingItem(item, gameObject);
+                housingItem.ItemStruct = (IntPtr)gameObject.Item;
+
+                ExteriorItemList.Add(housingItem);
+            }
+
+            Config.Save();
+        }
+
+        public void GetGameLayout()
         {
 
             Memory Mem = Memory.Instance;
+            var currentTerritory = Mem.GetCurrentTerritory();
 
-            var itemList = Mem.IsOutdoors() ? ExteriorItemList : InteriorItemList;
+            var itemList = currentTerritory == HousingArea.Indoors ? InteriorItemList : ExteriorItemList;
             itemList.Clear();
 
-            if (Mem.IsOutdoors())
+            switch (currentTerritory)
             {
-                LoadExterior();
-            }
-            else
-            {
-                LoadInterior();
+                case HousingArea.Outdoors:
+                    LoadExterior();
+                    break;
+
+                case HousingArea.Indoors:
+                    LoadInterior();
+                    break;
+
+                case HousingArea.Island:
+                    LoadIsland();
+                    break;
             }
 
             Log(String.Format("加载了 {0} 件家具", itemList.Count));
 
             Config.HiddenScreenItemHistory = new List<int>();
-            var territoryTypeId = ClientState.TerritoryType;
-            Config.LocationId = territoryTypeId;
             Config.Save();
         }
 
@@ -711,7 +718,7 @@ namespace MakePlacePlugin
         }
 
 
-        private void TerritoryChanged(object sender, ushort e)
+        private void TerritoryChanged(ushort e)
         {
             Config.DrawScreen = false;
             Config.Save();
@@ -737,17 +744,17 @@ namespace MakePlacePlugin
         public static void Log(string message, string detail_message = "")
         {
             var msg = $"{message}";
-            PluginLog.Log(detail_message == "" ? msg : detail_message);
-            ChatGui.Print(msg);
+            DalamudApi.PluginLog.Info(detail_message == "" ? msg : detail_message);
+            DalamudApi.ChatGui.Print(msg);
         }
         public static void LogError(string message, string detail_message = "")
         {
             var msg = $"{message}";
-            PluginLog.LogError(msg);
+            DalamudApi.PluginLog.Error(msg);
 
-            if (detail_message.Length > 0) PluginLog.LogError(detail_message);
+            if (detail_message.Length > 0) DalamudApi.PluginLog.Error(detail_message);
 
-            ChatGui.PrintError(msg);
+            DalamudApi.ChatGui.PrintError(msg);
         }
 
     }

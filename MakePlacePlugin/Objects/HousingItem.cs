@@ -1,10 +1,6 @@
 ﻿using Lumina.Excel.GeneratedSheets;
 using System;
-using System.Collections.Generic;
-using System.Linq;
 using System.Numerics;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace MakePlacePlugin.Objects
 {
@@ -12,6 +8,7 @@ namespace MakePlacePlugin.Objects
     {
         public uint ItemKey;
         public byte Stain;
+        public uint MaterialItemKey = 0;
         public float X;
         public float Y;
         public float Z;
@@ -34,6 +31,11 @@ namespace MakePlacePlugin.Objects
             Y = y;
             Z = z;
             Rotate = rotate;
+        }
+
+        public HousingItem(Item item, HousingGameObject gameObject)
+            : this(item, gameObject.color, gameObject.X, gameObject.Y, gameObject.Z, gameObject.rotation)
+        {
         }
 
         public Vector3 GetLocation()

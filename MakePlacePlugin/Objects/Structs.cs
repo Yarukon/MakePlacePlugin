@@ -2,6 +2,8 @@
 using System.Numerics;
 using System.Runtime.InteropServices;
 using FFXIVClientStructs.FFXIV.Client.Game;
+using FFXIVClientStructs.FFXIV.Client.Game.MJI;
+using FFXIVClientStructs.FFXIV.Client.Graphics.Scene;
 using Lumina.Excel.GeneratedSheets;
 using static FFXIVClientStructs.FFXIV.Client.Game.InventoryItem;
 using static MakePlacePlugin.Utils;
@@ -123,8 +125,15 @@ namespace MakePlacePlugin
     {
         [FieldOffset(0x50)] public Vector3 Position;
         [FieldOffset(0x60)] public Quaternion Rotation;
-        // [FieldOffset(0x90)] public HousingItemUnknown1* unknown;
+        [FieldOffset(0xF8)] public ItemMaterialManager* MaterialManager;
     }
+
+    [StructLayout(LayoutKind.Explicit)]
+    public unsafe struct ItemMaterialManager
+    {
+        [FieldOffset(0xcc)] public ushort MaterialSlot1;
+    }
+
 
     [StructLayout(LayoutKind.Explicit, Size = 0x30)]
     public unsafe struct HousingItemInfo
@@ -197,7 +206,6 @@ namespace MakePlacePlugin
         [FieldOffset(0x0)] public HousingObjectManager* currentTerritory;
         [FieldOffset(0x8)] public HousingObjectManager* outdoorTerritory;
         [FieldOffset(0x10)] public HousingObjectManager* indoorTerritory;
-
         // [FieldOffset(0x9704)] public uint CurrentIndoorFloor;
 
         public HousingObjectManager* GetCurrentManager()
@@ -215,20 +223,6 @@ namespace MakePlacePlugin
             return indoorTerritory != null;
         }
 
-        // Remaps game floors to our floor enum
-        public InteriorFloor CurrentFloor()
-        {
-            if (indoorTerritory == null) return InteriorFloor.None;
-            var gameFloor = *(int*)((byte*)indoorTerritory + 0x9704);
-
-            return gameFloor switch
-            {
-                0 => InteriorFloor.Ground,
-                1 => InteriorFloor.Upstairs,
-                10 => InteriorFloor.Basement,
-                _ => InteriorFloor.None
-            };
-        }
     }
 
     [StructLayout(LayoutKind.Explicit)]
@@ -392,6 +386,26 @@ namespace MakePlacePlugin
         [FieldOffset(0x0B)] private readonly byte Padding;
         [FieldOffset(0x0C)] private readonly int Unknown2;
         [FieldOffset(0x10)] private readonly void* Unknown3;
+    }
+
+    // This is just MJIManager
+    [StructLayout(LayoutKind.Explicit)]
+    public unsafe struct MjiManagerExtended
+    {
+        [FieldOffset(0x160)] public IslandObjectManager* ObjectManager;
+    }
+
+    [StructLayout(LayoutKind.Explicit)]
+    public unsafe struct IslandObjectManager
+    {
+        [FieldOffset(0x78)] public IslandFurnitureManager* FurnitureManager;
+    }
+
+    [StructLayout(LayoutKind.Explicit)]
+    public unsafe struct IslandFurnitureManager
+    {
+        [FieldOffset(0x1698)] public IntPtr ObjectList;
+        [FieldOffset(0x16A0)] public fixed ulong Objects[400];
     }
 
 }
