@@ -296,7 +296,7 @@ namespace MakePlacePlugin
             if (territoryRow.Name.ToString().Equals("h1m2"))
                 return HousingArea.Island;
 
-            if (HousingModule == null || (nint) HousingModule->currentTerritory == 0) return HousingArea.None;
+            if (HousingModule == null || HousingModule->currentTerritory == null) return HousingArea.None;
 
             if (HousingModule->IsOutdoors()) return HousingArea.Outdoors;
             else return HousingArea.Indoors;
