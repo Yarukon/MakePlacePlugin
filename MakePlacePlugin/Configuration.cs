@@ -24,9 +24,6 @@ namespace MakePlacePlugin
         public int LoadInterval = 400;
         public bool ApplyLayout = true;
 
-        public int LoadIntervalRndMin = 0;
-        public int LoadIntervalRndMax = 300;
-
         public string SaveLocation = null;
 
         public void Save()

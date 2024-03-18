@@ -156,7 +156,6 @@ namespace MakePlacePlugin
             SelectItemDetour((IntPtr)Memory.Instance.HousingStructure, item);
         }
 
-
         public unsafe void PlaceItems()
         {
 
@@ -190,7 +189,7 @@ namespace MakePlacePlugin
 
                     if (Config.LoadInterval > 0)
                     {
-                        Thread.Sleep(Config.LoadInterval + rnd.Next(Config.LoadIntervalRndMin, Config.LoadIntervalRndMax));
+                        Thread.Sleep(Config.LoadInterval);
                     }
 
                 }
@@ -257,7 +256,7 @@ namespace MakePlacePlugin
             }
 
             CurrentlyPlacingItems = true;
-            Log($"正在应用布局, 放置间隔为 {Config.LoadInterval}ms, 随机范围为 {Config.LoadIntervalRndMin}ms - {Config.LoadIntervalRndMax}ms");
+            Log($"正在应用布局, 放置间隔为 {Config.LoadInterval}ms");
 
             ItemsToPlace.Clear();
 
@@ -302,7 +301,7 @@ namespace MakePlacePlugin
 
         public bool MatchItem(HousingItem item, uint itemKey)
         {
-            if (item.ItemStruct != IntPtr.Zero) return false;       // this item is already matched. We can skip
+            if (item.ItemStruct != IntPtr.Zero) return false; // this item is already matched. We can skip
 
             return item.ItemKey == itemKey && IsSelectedFloor(item.Y);
         }

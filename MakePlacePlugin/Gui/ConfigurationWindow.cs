@@ -122,11 +122,11 @@ namespace MakePlacePlugin.Gui
         {
             if (Memory.Instance.GetCurrentTerritory() == Memory.HousingArea.Island)
             {
-                LogError("(Manage Furnishings -> Place Furnishing Glamours)");
+                LogError("(管理庭具 -> 投影布置庭具)");
             }
             else
             {
-                LogError("(Housing -> Indoor/Outdoor Furnishings)");
+                LogError("(房屋 -> 布置庭具/家具)");
             }
         }
 
@@ -134,7 +134,7 @@ namespace MakePlacePlugin.Gui
         {
             if (Memory.Instance.IsHousingMode()) return true;
 
-            LogError("Unable to save layouts outside of Layout mode");
+            LogError("无法在布置模式之外保存布局.");
             LogLayoutMode();
             return false;
         }
@@ -143,13 +143,13 @@ namespace MakePlacePlugin.Gui
         {
             if (Config.ApplyLayout && !Memory.Instance.CanEditItem())
             {
-                LogError("Unable to load and apply layouts outside of Rotate Layout mode");
+                LogError("无法在旋转模式之外加载并应用布局.");
                 return false;
             }
 
             if (!Config.ApplyLayout && !Memory.Instance.IsHousingMode())
             {
-                LogError("Unable to load layouts outside of Layout mode");
+                LogError("无法在布置模式之外加载布局.");
                 LogLayoutMode();
                 return false;
             }
@@ -171,7 +171,7 @@ namespace MakePlacePlugin.Gui
             }
             catch (Exception e)
             {
-                LogError($"Save Error: {e.Message}", e.StackTrace);
+                LogError($"保存错误: {e.Message}", e.StackTrace);
             }
         }
 
@@ -183,7 +183,7 @@ namespace MakePlacePlugin.Gui
             try
             {
                 SaveLayoutManager.ImportLayout(Config.SaveLocation);
-                Log(String.Format("Imported {0} items", Plugin.InteriorItemList.Count + Plugin.ExteriorItemList.Count));
+                Log(String.Format("导入了 {0} 个物品", Plugin.InteriorItemList.Count + Plugin.ExteriorItemList.Count));
 
                 Plugin.MatchLayout();
                 Config.ResetRecord();
@@ -196,7 +196,7 @@ namespace MakePlacePlugin.Gui
             }
             catch (Exception e)
             {
-                LogError($"Load Error: {e.Message}", e.StackTrace);
+                LogError($"导入错误: {e.Message}", e.StackTrace);
             }
         }
 
@@ -232,7 +232,6 @@ namespace MakePlacePlugin.Gui
 
             }
 
-
             if (ImGui.Button("另存为"))
             {
                 if (CheckModeForSave())
@@ -254,21 +253,21 @@ namespace MakePlacePlugin.Gui
                     }, Path.GetDirectoryName(Config.SaveLocation));
                 }
             }
-            if (Config.ShowTooltips && ImGui.IsItemHovered()) ImGui.SetTooltip("Save layout to file");
+            if (Config.ShowTooltips && ImGui.IsItemHovered()) ImGui.SetTooltip("保存布局到文件");
 
             ImGui.SameLine(); ImGui.Dummy(new Vector2(20, 0)); ImGui.SameLine();
 
             if (!Config.SaveLocation.IsNullOrEmpty())
             {
-                if (ImGui.Button("Load"))
+                if (ImGui.Button("加载"))
                 {
                     LoadLayoutFromFile();
                 }
-                if (Config.ShowTooltips && ImGui.IsItemHovered()) ImGui.SetTooltip("Load layout from current file location");
+                if (Config.ShowTooltips && ImGui.IsItemHovered()) ImGui.SetTooltip("从当前路径加载布局");
                 ImGui.SameLine();
             }
 
-            if (ImGui.Button("Load From"))
+            if (ImGui.Button("从...加载"))
             {
                 if (CheckModeForLoad())
                 {
@@ -290,24 +289,25 @@ namespace MakePlacePlugin.Gui
                     }, 1, Path.GetDirectoryName(Config.SaveLocation));
                 }
             }
-            if (Config.ShowTooltips && ImGui.IsItemHovered()) ImGui.SetTooltip("Load layout from file");
+            if (Config.ShowTooltips && ImGui.IsItemHovered()) ImGui.SetTooltip("从文件加载布局");
 
             ImGui.SameLine(); ImGui.Dummy(new Vector2(10, 0)); ImGui.SameLine();
 
-            if (ImGui.Checkbox("Apply Layout", ref Config.ApplyLayout))
+            if (ImGui.Checkbox("应用布局", ref Config.ApplyLayout))
             {
                 Config.Save();
             }
+            if (Config.ShowTooltips && ImGui.IsItemHovered()) ImGui.SetTooltip("加载布局后是否自动应用");
 
             ImGui.SameLine(); ImGui.Dummy(new Vector2(10, 0)); ImGui.SameLine();
 
             ImGui.PushItemWidth(100);
-            if (ImGui.InputInt("Placement Interval (ms)", ref Config.LoadInterval))
+            if (ImGui.InputInt("放置布局 (ms)", ref Config.LoadInterval))
             {
                 Config.Save();
             }
             ImGui.PopItemWidth();
-            if (Config.ShowTooltips && ImGui.IsItemHovered()) ImGui.SetTooltip("Time interval between furniture placements when applying a layout. If this is too low (e.g. 200 ms), some placements may be skipped over.");
+            if (Config.ShowTooltips && ImGui.IsItemHovered()) ImGui.SetTooltip("应用布局时家具放置之间的时间间隔. 如果设定过低 (例如 200 ms), 一些家具的放置可能会被跳过.");
 
             ImGui.Dummy(new Vector2(0, 15));
 
@@ -316,7 +316,7 @@ namespace MakePlacePlugin.Gui
             if (!noFloors)
             {
 
-                ImGui.Text("Selected Floors");
+                ImGui.Text("选择楼层");
 
                 if (ImGui.Checkbox("地下室", ref Config.Basement))
                 {
@@ -626,10 +626,6 @@ namespace MakePlacePlugin.Gui
             }
         }
         #endregion
-
-
-
-
 
     }
 }
