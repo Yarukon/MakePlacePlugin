@@ -2,7 +2,7 @@
 
 	<PropertyGroup>
 		<DalamudLibPath>..\..\DalamudDep\</DalamudLibPath>
-		<PluginVersion>3.4.2</PluginVersion>
+		<PluginVersion>3.4.2.1</PluginVersion>
 	</PropertyGroup>
 
 	<PropertyGroup>

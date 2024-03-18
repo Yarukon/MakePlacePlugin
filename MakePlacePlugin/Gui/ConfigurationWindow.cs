@@ -302,7 +302,7 @@ namespace MakePlacePlugin.Gui
             ImGui.SameLine(); ImGui.Dummy(new Vector2(10, 0)); ImGui.SameLine();
 
             ImGui.PushItemWidth(100);
-            if (ImGui.InputInt("放置布局 (ms)", ref Config.LoadInterval))
+            if (ImGui.InputInt("放置间隔 (ms)", ref Config.LoadInterval))
             {
                 Config.Save();
             }
@@ -311,11 +311,10 @@ namespace MakePlacePlugin.Gui
 
             ImGui.Dummy(new Vector2(0, 15));
 
-            bool noFloors = Memory.Instance.GetCurrentTerritory() != Memory.HousingArea.Indoors || Memory.Instance.GetIndoorHouseSize().Equals("Apartment");
+            bool hasFloors = Memory.Instance.GetCurrentTerritory() == Memory.HousingArea.Indoors && !Memory.Instance.GetIndoorHouseSize().Equals("Apartment");
 
-            if (!noFloors)
+            if (hasFloors)
             {
-
                 ImGui.Text("选择楼层");
 
                 if (ImGui.Checkbox("地下室", ref Config.Basement))
@@ -340,7 +339,6 @@ namespace MakePlacePlugin.Gui
             }
 
             ImGui.Dummy(new Vector2(0, 15));
-
         }
 
         private void DrawRow(int i, HousingItem housingItem, bool showSetPosition = true, int childIndex = -1)
@@ -416,7 +414,6 @@ namespace MakePlacePlugin.Gui
                 ImGui.NextColumn();
             }
 
-
         }
 
         private void DrawFixtureList(List<Fixture> fixtureList)
@@ -462,14 +459,10 @@ namespace MakePlacePlugin.Gui
             {
                 LogError(e.Message, e.StackTrace);
             }
-
         }
 
         private void DrawItemList(List<HousingItem> itemList, bool isUnused = false)
         {
-
-
-
             if (ImGui.Button("排序"))
             {
                 itemList.Sort((x, y) =>
@@ -504,7 +497,6 @@ namespace MakePlacePlugin.Gui
             // name, position, r, color, set
             int columns = isUnused ? 4 : 5;
 
-
             ImGui.Columns(columns, "ItemList", true);
             ImGui.Separator();
             ImGui.Text("物品"); ImGui.NextColumn();
@@ -536,8 +528,6 @@ namespace MakePlacePlugin.Gui
                 }
 
                 ImGui.Text(displayName);
-
-
 
                 ImGui.NextColumn();
                 DrawRow(i, housingItem, !isUnused);

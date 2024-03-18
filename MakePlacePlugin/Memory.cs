@@ -23,9 +23,8 @@ namespace MakePlacePlugin
         {
             try
             {
-                HousingModulePtr = DalamudApi.SigScanner.GetStaticAddressFromSig("40 53 48 83 EC 20 33 DB 48 39 1D ?? ?? ?? ?? 75 2C 45 33 C0 33 D2 B9 ?? ?? ?? ?? E8 ?? ?? ?? ?? 48 85 C0 74 11 48 8B C8 E8 ?? ?? ?? ?? 48 89 05 ?? ?? ?? ?? EB 07");
+                HousingModulePtr = DalamudApi.SigScanner.GetStaticAddressFromSig("48 39 1D ?? ?? ?? ?? 75 ?? 45 ?? ?? 33 ?? B9 ?? ?? ?? ?? E8 ?? ?? ?? ?? 48 ?? ?? 74 ?? 48 ?? ?? E8 ?? ?? ?? ?? 48 89 05");
                 LayoutWorldPtr = DalamudApi.SigScanner.GetStaticAddressFromSig("48 8B 0D ?? ?? ?? ?? 48 85 C9 74 ?? 48 8B 49 40 E9 ?? ?? ?? ??");
-
 
                 var getInventoryContainerPtr = DalamudApi.SigScanner.ScanText("E8 ?? ?? ?? ?? 8B 55 BB");
                 GetInventoryContainer = Marshal.GetDelegateForFunctionPointer<GetInventoryContainerDelegate>(getInventoryContainerPtr);
@@ -41,12 +40,10 @@ namespace MakePlacePlugin
         private IntPtr HousingModulePtr { get; }
         private IntPtr LayoutWorldPtr { get; }
 
-        public unsafe HousingModule* HousingModule => HousingModulePtr != IntPtr.Zero ? (HousingModule*)Marshal.ReadIntPtr(HousingModulePtr) : null;
-        public unsafe LayoutWorld* LayoutWorld => LayoutWorldPtr != IntPtr.Zero ? (LayoutWorld*)Marshal.ReadIntPtr(LayoutWorldPtr) : null;
+        public unsafe HousingModule* HousingModule => HousingModulePtr != IntPtr.Zero ? (HousingModule*) Marshal.ReadIntPtr(HousingModulePtr) : null;
+        public unsafe LayoutWorld* LayoutWorld => LayoutWorldPtr != IntPtr.Zero ? (LayoutWorld*) Marshal.ReadIntPtr(LayoutWorldPtr) : null;
         public unsafe HousingObjectManager* CurrentManager => HousingModule->currentTerritory;
         public unsafe HousingStructure* HousingStructure => LayoutWorld->HousingStruct;
-
-
 
         public static void Init()
         {
@@ -297,11 +294,9 @@ namespace MakePlacePlugin
             }
 
             if (territoryRow.Name.ToString().Equals("h1m2"))
-            {
                 return HousingArea.Island;
-            }
 
-            if (HousingModule == null) return HousingArea.None;
+            if (HousingModule == null || (nint) HousingModule->currentTerritory == 0) return HousingArea.None;
 
             if (HousingModule->IsOutdoors()) return HousingArea.Outdoors;
             else return HousingArea.Indoors;

@@ -222,7 +222,6 @@ namespace MakePlacePlugin
         {
             return indoorTerritory != null;
         }
-
     }
 
     [StructLayout(LayoutKind.Explicit)]
