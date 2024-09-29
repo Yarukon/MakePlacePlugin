@@ -1,11 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Numerics;
 using System.Runtime.InteropServices;
-using Dalamud.Game;
-using Dalamud.Logging;
-using Dalamud.Plugin;
 using FFXIVClientStructs.FFXIV.Client.Game;
 using FFXIVClientStructs.FFXIV.Client.Game.MJI;
 using Lumina.Excel.GeneratedSheets;
@@ -15,6 +11,10 @@ namespace MakePlacePlugin
 {
     public unsafe class Memory
     {
+        // Pointers to modify assembly to enable place anywhere.
+        public IntPtr placeAnywhere;
+        public IntPtr wallAnywhere;
+        public IntPtr wallmountAnywhere;
 
         public static GetInventoryContainerDelegate GetInventoryContainer;
         public delegate InventoryContainer* GetInventoryContainerDelegate(IntPtr inventoryManager, InventoryType inventoryType);
@@ -23,10 +23,14 @@ namespace MakePlacePlugin
         {
             try
             {
-                HousingModulePtr = DalamudApi.SigScanner.GetStaticAddressFromSig("48 39 1D ?? ?? ?? ?? 75 ?? 45 ?? ?? 33 ?? B9 ?? ?? ?? ?? E8 ?? ?? ?? ?? 48 ?? ?? 74 ?? 48 ?? ?? E8 ?? ?? ?? ?? 48 89 05");
-                LayoutWorldPtr = DalamudApi.SigScanner.GetStaticAddressFromSig("48 8B 0D ?? ?? ?? ?? 48 85 C9 74 ?? 48 8B 49 40 E9 ?? ?? ?? ??");
+                placeAnywhere = DalamudApi.SigScanner.ScanText("C6 ?? ?? ?? 00 00 00 8B FE 48 89") + 6;
+                wallAnywhere = DalamudApi.SigScanner.ScanText("48 85 C0 74 ?? C6 87 ?? ?? 00 00 00") + 11;
+                wallmountAnywhere = DalamudApi.SigScanner.ScanText("c6 87 83 01 00 00 00 48 83 c4 ??") + 6;
 
-                var getInventoryContainerPtr = DalamudApi.SigScanner.ScanText("E8 ?? ?? ?? ?? 8B 55 BB");
+                HousingModulePtr = DalamudApi.SigScanner.GetStaticAddressFromSig("48 8B 05 ?? ?? ?? ?? 8B 52");
+                LayoutWorldPtr = DalamudApi.SigScanner.GetStaticAddressFromSig("48 8B D1 48 8B 0D ?? ?? ?? ?? 48 85 C9 74 0A", 3);
+
+                var getInventoryContainerPtr = DalamudApi.SigScanner.ScanText("E8 ?? ?? ?? ?? 40 38 78 10");
                 GetInventoryContainer = Marshal.GetDelegateForFunctionPointer<GetInventoryContainerDelegate>(getInventoryContainerPtr);
             }
             catch (Exception e)
@@ -176,7 +180,7 @@ namespace MakePlacePlugin
             for (int i = 0; i < exteriorItems->Size; i++)
             {
                 var item = exteriorItems->GetInventorySlot(i);
-                if (item == null || item->ItemID == 0) continue;
+                if (item == null || item->ItemId == 0) continue;
 
                 var itemInfoIndex = GetYardIndex(mgr->Plot, (byte)i);
                 var itemInfo = HousingObjectManager.GetItemInfo(mgr, itemInfoIndex);
@@ -289,7 +293,7 @@ namespace MakePlacePlugin
             var territoryRow = DalamudApi.DataManager.GetExcelSheet<TerritoryType>().GetRow(GetTerritoryTypeId());
             if (territoryRow == null)
             {
-                LogError("Cannot identify territory");
+                LogError($"Invalid territory row: {GetTerritoryTypeId()}");
                 return HousingArea.None;
             }
 
@@ -306,7 +310,7 @@ namespace MakePlacePlugin
         {
             if (HousingStructure == null)
                 return false;
-            
+
             return HousingStructure->Mode != HousingLayoutMode.None;
         }
 
@@ -368,5 +372,62 @@ namespace MakePlacePlugin
                 DalamudApi.PluginLog.Error(ex, "Error occured while writing rotation!");
             }
         }
+
+        private static void WriteProtectedBytes(IntPtr addr, byte[] b)
+        {
+            if (addr == IntPtr.Zero) return;
+            VirtualProtect(addr, 1, Protection.PAGE_EXECUTE_READWRITE, out var oldProtection);
+            Marshal.Copy(b, 0, addr, b.Length);
+            VirtualProtect(addr, 1, oldProtection, out _);
+        }
+
+        private static void WriteProtectedBytes(IntPtr addr, byte b)
+        {
+            if (addr == IntPtr.Zero) return;
+            WriteProtectedBytes(addr, [b]);
+        }
+
+        /// <summary>
+        /// Sets the flag for place anywhere in memory.
+        /// </summary>
+        /// <param name="state">Boolean state for if you can place anywhere.</param>
+        public void SetPlaceAnywhere(bool state)
+        {
+            if (placeAnywhere == IntPtr.Zero || wallAnywhere == IntPtr.Zero || wallmountAnywhere == IntPtr.Zero)
+            {
+                LogError("Could not setup memory for placing anywhere");
+                return;
+            }
+
+            // The byte state from boolean.
+            var bstate = (byte)(state ? 1 : 0);
+
+            // Write the bytes for place anywhere.
+            WriteProtectedBytes(placeAnywhere, bstate);
+            WriteProtectedBytes(wallAnywhere, bstate);
+            WriteProtectedBytes(wallmountAnywhere, bstate);
+        }
+
+        #region Kernel32
+
+        [DllImport("kernel32.dll", SetLastError = true)]
+        private static extern bool VirtualProtect(IntPtr lpAddress, uint dwSize, Protection flNewProtect, out Protection lpflOldProtect);
+
+        public enum Protection
+        {
+            PAGE_NOACCESS = 0x01,
+            PAGE_READONLY = 0x02,
+            PAGE_READWRITE = 0x04,
+            PAGE_WRITECOPY = 0x08,
+            PAGE_EXECUTE = 0x10,
+            PAGE_EXECUTE_READ = 0x20,
+            PAGE_EXECUTE_READWRITE = 0x40,
+            PAGE_EXECUTE_WRITECOPY = 0x80,
+            PAGE_GUARD = 0x100,
+            PAGE_NOCACHE = 0x200,
+            PAGE_WRITECOMBINE = 0x400
+        }
+
+        #endregion
     }
 }

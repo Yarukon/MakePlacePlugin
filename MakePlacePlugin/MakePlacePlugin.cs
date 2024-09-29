@@ -11,7 +11,6 @@ using Dalamud.Logging;
 using Dalamud.Plugin;
 using Dalamud.Plugin.Services;
 using FFXIVClientStructs.FFXIV.Client.Game;
-using FFXIVClientStructs.FFXIV.Client.Game.Housing;
 using FFXIVClientStructs.FFXIV.Client.Game.MJI;
 using FFXIVClientStructs.FFXIV.Client.Game.Object;
 using ImGuiScene;
@@ -62,7 +61,6 @@ namespace MakePlacePlugin
 
         public void Dispose()
         {
-
             HookManager.Dispose();
 
             DalamudApi.ClientState.TerritoryChanged -= TerritoryChanged;
@@ -71,7 +69,7 @@ namespace MakePlacePlugin
 
         }
 
-        public MakePlacePlugin(DalamudPluginInterface pi)
+        public MakePlacePlugin(IDalamudPluginInterface pi)
         {
             DalamudApi.Initialize(pi);
 
@@ -92,24 +90,45 @@ namespace MakePlacePlugin
             Memory.Init();
             LayoutManager = new SaveLayoutManager(this, Config);
 
-            DalamudApi.PluginLog.Info("MakePlace Plugin v3.4.2 初始化完毕");
+            DalamudApi.PluginLog.Info("MakePlace Plugin v3.6.2 初始化完毕");
         }
         public void Initialize()
         {
 
-            IsSaveLayoutHook = HookManager.Hook<UpdateLayoutDelegate>("40 53 48 83 ec 20 48 8b d9 48 8b 0d ?? ?? ?? ?? e8 ?? ?? ?? ?? 33 d2 48 8b c8 e8 ?? ?? ?? ?? 84 c0 75 7d 38 83 ?? 01 00 00", IsSaveLayoutDetour);
+            IsSaveLayoutHook = HookManager.Hook<UpdateLayoutDelegate>("40 53 48 83 ec 20 48 8b d9 48 8b 0d ?? ?? ?? ?? e8 ?? ?? ?? ?? 33 d2 48 8b c8 e8 ?? ?? ?? ?? 84 c0 75 ?? 38 83 ?? 01 00 00", IsSaveLayoutDetour);
 
-            SelectItemHook = HookManager.Hook<SelectItemDelegate>("E8 ?? ?? ?? ?? 48 8B CE E8 ?? ?? ?? ?? 48 8B 6C 24 40 48 8B CE", SelectItemDetour);
+            SelectItemHook = HookManager.Hook<SelectItemDelegate>("48 85 D2 0F 84 49 09 00 00 53 41 56 48 83 EC 48 48 89 6C 24 60 48 8B DA 48 89 74 24 70 4C 8B F1", SelectItemDetour);
 
-            UpdateYardObjHook = HookManager.Hook<UpdateYardDelegate>("48 89 74 24 18 57 48 83 ec 20 b8 dc 02 00 00 0f b7 f2 48 8b f9 66 3b d0 0f", UpdateYardObj);
+            PlaceItemHook = HookManager.Hook<PlaceItemDelegate>("48 89 5C 24 10 48 89 74  24 18 57 48 83 EC 20 4c 8B 41 18 33 FF 0F B6 F2", PlaceItemDetour);
+
+            UpdateYardObjHook = HookManager.Hook<UpdateYardDelegate>("48 89 74 24 18 57 48 83 ec 20 b8 dc 02 00 00 0f b7 f2 ??", UpdateYardObj);
 
             GetGameObjectHook = HookManager.Hook<GetObjectDelegate>("48 89 5c 24 08 48 89 74 24 10 57 48 83 ec 20 0f b7 f2 33 db 0f 1f 40 00 0f 1f 84 00 00 00 00 00", GetGameObject);
 
             GetObjectFromIndexHook = HookManager.Hook<GetActiveObjectDelegate>("81 fa 90 01 00 00 75 08 48 8b 81 88 0c 00 00 c3 0f b7 81 90 0c 00 00 3b d0 72 03 33 c0 c3", GetObjectFromIndex);
 
-            GetYardIndexHook = HookManager.Hook<GetIndexDelegate>("48 89 6c 24 18 56 48 83 ec 20 0f b6 ea 0f b6 f1 84 c9 79 22 0f b6 c1", GetYardIndex);
+            GetYardIndexHook = HookManager.Hook<GetIndexDelegate>("48 89 6c 24 18 56 48 83 ec 20 0f b6 ?? 0f b6 ?? ?? ?? ?? ?? ?? ?? ??", GetYardIndex);
 
         }
+
+        public delegate void PlaceItemDelegate(IntPtr housingStruct, IntPtr item);
+        private static HookWrapper<PlaceItemDelegate> PlaceItemHook;
+        unsafe static public void PlaceItemDetour(IntPtr housing, IntPtr item)
+        {
+            /*
+            The call made by the XIV client has some strange behaviour.
+            It can either place the item pointer passed to it or it retrieves the activeItem from the housing object.
+            Passing the active item probably led to more crashes. 
+            Defaulted to the easier path of just passing in a zero pointer so that the call populates itself form the housing object.
+            */
+            DalamudApi.PluginLog.Debug(string.Format("placing item {0}", (housing + 24).ToString()));
+            PlaceItemHook.Original(housing, item);
+        }
+        unsafe static public void PlaceItem(IntPtr item)
+        {
+            PlaceItemDetour((IntPtr)Memory.Instance.HousingStructure, item);
+        }
+
 
         internal delegate ushort GetIndexDelegate(byte type, byte objStruct);
         internal static HookWrapper<GetIndexDelegate> GetYardIndexHook;
@@ -172,6 +191,8 @@ namespace MakePlacePlugin
                     GetPlotLocation();
                 }
 
+                Memory.Instance.SetPlaceAnywhere(true);
+
                 while (ItemsToPlace.Count > 0)
                 {
                     var item = ItemsToPlace.First();
@@ -205,6 +226,7 @@ namespace MakePlacePlugin
                 LogError($"错误: {e.Message}", e.StackTrace);
             }
 
+            Memory.Instance.SetPlaceAnywhere(false);
             CurrentlyPlacingItems = false;
         }
 
@@ -241,6 +263,8 @@ namespace MakePlacePlugin
             }
             MemInstance.WritePosition(position);
             MemInstance.WriteRotation(rotation);
+
+            PlaceItem(nint.Zero);
 
             rowItem.CorrectLocation = true;
             rowItem.CorrectRotation = true;
@@ -317,7 +341,8 @@ namespace MakePlacePlugin
             if (item.MaterialItemKey == 0 && matNumber == 0) return true;
             else if (item.MaterialItemKey != 0 && matNumber == 0) return false;
 
-            if (!Util.Wallpaper.Map.TryGetValue(matNumber, out var matItemKey)) return true;
+            var matItemKey = HousingData.Instance.GetMaterialItemKey(item.ItemKey, matNumber);
+            if (matItemKey == 0) return true;
 
             return matItemKey == item.MaterialItemKey;
 
@@ -406,7 +431,7 @@ namespace MakePlacePlugin
 
                 // check if it's already correctly placed & rotated
                 var locationError = houseItem.GetLocation() - localPosition;
-                houseItem.CorrectLocation = locationError.LengthSquared() < 0.0001;
+                houseItem.CorrectLocation = locationError.Length() < 0.00001;
                 houseItem.CorrectRotation = localRotation - houseItem.Rotate < 0.001;
 
                 houseItem.ItemStruct = (IntPtr)gameObject.Item;
@@ -482,7 +507,7 @@ namespace MakePlacePlugin
 
             if (row == null)
             {
-                LogError("无法识别地形ID");
+                LogError($"无法识别地形ID: {territoryId}");
                 return;
             }
 
@@ -531,9 +556,9 @@ namespace MakePlacePlugin
             for (int i = 0; i < exteriorItems->Size; i++)
             {
                 var item = exteriorItems->GetInventorySlot(i);
-                if (item == null || item->ItemID == 0) continue;
+                if (item == null || item->ItemId == 0) continue;
 
-                var itemRow = DalamudApi.DataManager.GetExcelSheet<Item>().GetRow(item->ItemID);
+                var itemRow = DalamudApi.DataManager.GetExcelSheet<Item>().GetRow(item->ItemId);
                 if (itemRow == null) continue;
 
                 var itemInfoIndex = GetYardIndex(mgr->Plot, (byte)i);
@@ -550,13 +575,12 @@ namespace MakePlacePlugin
 
                 var housingItem = new HousingItem(
                     itemRow,
-                    item->Stain,
+                    item->Stains[0],
                     newLocation.X,
                     newLocation.Y,
                     newLocation.Z,
                     itemInfo->Rotation + PlotLocation.rotation
                 );
-
 
                 var gameObj = (HousingGameObject*)GetObjectFromIndex(activeObjList, itemInfo->ObjectIndex);
 
@@ -605,6 +629,7 @@ namespace MakePlacePlugin
             return false;
         }
 
+
         public unsafe void LoadInterior()
         {
             SaveLayoutManager.LoadInteriorFixtures();
@@ -632,10 +657,7 @@ namespace MakePlacePlugin
                 if (gameObject.Item != null && gameObject.Item->MaterialManager != null)
                 {
                     ushort material = gameObject.Item->MaterialManager->MaterialSlot1;
-                    if (material != 0 && Util.Wallpaper.Map.TryGetValue(material, out var matItemKey))
-                    {
-                        housingItem.MaterialItemKey = matItemKey;
-                    }
+                    housingItem.MaterialItemKey = HousingData.Instance.GetMaterialItemKey(item.RowId, material);
                 }
 
                 InteriorItemList.Add(housingItem);
