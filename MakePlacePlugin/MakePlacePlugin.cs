@@ -1,29 +1,16 @@
-﻿using Dalamud.Data;
-using Dalamud.Game;
-using Dalamud.Game.ClientState;
-using Dalamud.Game.ClientState.Objects;
-using Dalamud.Game.ClientState.Objects.Types;
-using Dalamud.Game.Command;
-using Dalamud.Game.Gui;
-using Dalamud.Game.Network;
-using Dalamud.IoC;
-using Dalamud.Logging;
+﻿using Dalamud.Game.Command;
 using Dalamud.Plugin;
-using Dalamud.Plugin.Services;
 using FFXIVClientStructs.FFXIV.Client.Game;
-using FFXIVClientStructs.FFXIV.Client.Game.MJI;
-using FFXIVClientStructs.FFXIV.Client.Game.Object;
-using ImGuiScene;
-using Lumina.Excel.GeneratedSheets;
+using Lumina.Excel.Sheets;
 using MakePlacePlugin.Objects;
 using MakePlacePlugin.Util;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Numerics;
-using System.Threading;
+using System.Runtime.InteropServices;
 using static MakePlacePlugin.Memory;
-using HousingFurniture = Lumina.Excel.GeneratedSheets.HousingFurniture;
+using HousingFurniture = Lumina.Excel.Sheets.HousingFurniture;
 
 namespace MakePlacePlugin
 {
@@ -45,6 +32,8 @@ namespace MakePlacePlugin
         private static HookWrapper<SelectItemDelegate> SelectItemHook;
 
         public static bool CurrentlyPlacingItems = false;
+
+        public static bool OriginalPlaceAnywhere = false;
 
         public static bool ApplyChange = false;
 
@@ -90,7 +79,7 @@ namespace MakePlacePlugin
             Memory.Init();
             LayoutManager = new SaveLayoutManager(this, Config);
 
-            DalamudApi.PluginLog.Info("MakePlace Plugin v3.6.2 初始化完毕");
+            DalamudApi.PluginLog.Info("MakePlace Plugin v3.7.3 初始化完毕");
         }
         public void Initialize()
         {
@@ -107,7 +96,7 @@ namespace MakePlacePlugin
 
             GetObjectFromIndexHook = HookManager.Hook<GetActiveObjectDelegate>("81 fa 90 01 00 00 75 08 48 8b 81 88 0c 00 00 c3 0f b7 81 90 0c 00 00 3b d0 72 03 33 c0 c3", GetObjectFromIndex);
 
-            GetYardIndexHook = HookManager.Hook<GetIndexDelegate>("48 89 6c 24 18 56 48 83 ec 20 0f b6 ?? 0f b6 ?? ?? ?? ?? ?? ?? ?? ??", GetYardIndex);
+            GetYardIndexHook = HookManager.Hook<GetIndexDelegate>("48 89 5c 24 10 57 48 83 ec 20 0f b6 d9", GetYardIndex);
 
         }
 
@@ -175,24 +164,17 @@ namespace MakePlacePlugin
             SelectItemDetour((IntPtr)Memory.Instance.HousingStructure, item);
         }
 
-        public unsafe void PlaceItems()
+        public unsafe void RecursivelyPlaceItems()
         {
 
             if (!Memory.Instance.CanEditItem() || ItemsToPlace.Count == 0)
             {
+                Cleanup();
                 return;
             }
 
             try
             {
-
-                if (Memory.Instance.GetCurrentTerritory() == Memory.HousingArea.Outdoors)
-                {
-                    GetPlotLocation();
-                }
-
-                Memory.Instance.SetPlaceAnywhere(true);
-
                 while (ItemsToPlace.Count > 0)
                 {
                     var item = ItemsToPlace.First();
@@ -208,16 +190,8 @@ namespace MakePlacePlugin
 
                     SetItemPosition(item);
 
-                    if (Config.LoadInterval > 0)
-                    {
-                        Thread.Sleep(Config.LoadInterval);
-                    }
-
-                }
-
-                if (ItemsToPlace.Count == 0)
-                {
-                    Log("应用布局完毕");
+                    DalamudApi.Framework.RunOnTick(RecursivelyPlaceItems, TimeSpan.FromMilliseconds(Config.LoadInterval));
+                    return;
                 }
 
             }
@@ -226,8 +200,14 @@ namespace MakePlacePlugin
                 LogError($"错误: {e.Message}", e.StackTrace);
             }
 
-            Memory.Instance.SetPlaceAnywhere(false);
-            CurrentlyPlacingItems = false;
+            Cleanup();
+
+            void Cleanup()
+            {
+                Memory.Instance.SetPlaceAnywhere(OriginalPlaceAnywhere);
+                CurrentlyPlacingItems = false;
+                Log("Finished applying layout");
+            }
         }
 
         unsafe public static void SetItemPosition(HousingItem rowItem)
@@ -319,8 +299,15 @@ namespace MakePlacePlugin
             ItemsToPlace.AddRange(placedLast);
 
 
-            var thread = new Thread(PlaceItems);
-            thread.Start();
+            if (Memory.Instance.GetCurrentTerritory() == Memory.HousingArea.Outdoors)
+            {
+                GetPlotLocation();
+            }
+
+            OriginalPlaceAnywhere = Memory.Instance.GetPlaceAnywhere();
+            Memory.Instance.SetPlaceAnywhere(true);
+
+            RecursivelyPlaceItems();
         }
 
         public bool MatchItem(HousingItem item, uint itemKey)
@@ -414,6 +401,7 @@ namespace MakePlacePlugin
                         localPosition = Vector3.Transform(localPosition - PlotLocation.ToVector(), rotateVector);
                         localRotation += PlotLocation.rotation;
                     }
+
                     var furniture = DalamudApi.DataManager.GetExcelSheet<HousingYardObject>().GetRow(furnitureKey);
                     var itemKey = furniture.Item.Value.RowId;
                     houseItem = Utils.GetNearestHousingItem(
@@ -503,9 +491,8 @@ namespace MakePlacePlugin
         {
             var mgr = Memory.Instance.HousingModule->outdoorTerritory;
             var territoryId = Memory.Instance.GetTerritoryTypeId();
-            var row = DalamudApi.DataManager.GetExcelSheet<TerritoryType>().GetRow(territoryId);
 
-            if (row == null)
+            if (!DalamudApi.DataManager.GetExcelSheet<TerritoryType>().TryGetRow(territoryId, out var row))
             {
                 LogError($"无法识别地形ID: {territoryId}");
                 return;
@@ -526,9 +513,8 @@ namespace MakePlacePlugin
 
             var mgr = Memory.Instance.HousingModule->outdoorTerritory;
 
-            var outdoorMgrAddr = (IntPtr)mgr;
-            var objectListAddr = outdoorMgrAddr + 0x10;
-            var activeObjList = objectListAddr + 0x8968;
+            var objectListAddr = (IntPtr)(&mgr->ObjectList);
+            var activeObjList = (IntPtr)(mgr->Objects) - 0x08;
 
             var exteriorItems = Memory.GetContainer(InventoryType.HousingExteriorPlacedItems);
 
@@ -558,8 +544,7 @@ namespace MakePlacePlugin
                 var item = exteriorItems->GetInventorySlot(i);
                 if (item == null || item->ItemId == 0) continue;
 
-                var itemRow = DalamudApi.DataManager.GetExcelSheet<Item>().GetRow(item->ItemId);
-                if (itemRow == null) continue;
+                if (!DalamudApi.DataManager.GetExcelSheet<Item>().TryGetRow(item->ItemId, out var itemRow)) continue;
 
                 var itemInfoIndex = GetYardIndex(mgr->Plot, (byte)i);
 
@@ -569,7 +554,7 @@ namespace MakePlacePlugin
                     continue;
                 }
 
-                var location = new Vector3(itemInfo->X, itemInfo->Y, itemInfo->Z);
+                var location = new Vector3(itemInfo->Position.X, itemInfo->Position.Y, itemInfo->Position.Z);
 
                 var newLocation = Vector3.Transform(location - PlotLocation.ToVector(), rotateVector);
 
@@ -582,7 +567,7 @@ namespace MakePlacePlugin
                     itemInfo->Rotation + PlotLocation.rotation
                 );
 
-                var gameObj = (HousingGameObject*)GetObjectFromIndex(activeObjList, itemInfo->ObjectIndex);
+                var gameObj = (HousingGameObject*)GetObjectFromIndex(activeObjList, (uint)itemInfo->Index);
 
                 if (gameObj == null)
                 {
@@ -594,7 +579,6 @@ namespace MakePlacePlugin
                         location = new Vector3(gameObj->X, gameObj->Y, gameObj->Z);
 
                         newLocation = Vector3.Transform(location - PlotLocation.ToVector(), rotateVector);
-
 
                         housingItem.X = newLocation.X;
                         housingItem.Y = newLocation.Y;
@@ -643,10 +627,12 @@ namespace MakePlacePlugin
             {
                 uint furnitureKey = gameObject.housingRowId;
 
-                var furniture = DalamudApi.DataManager.GetExcelSheet<HousingFurniture>().GetRow(furnitureKey);
-                Item item = furniture?.Item?.Value;
+                if (!DalamudApi.DataManager.GetExcelSheet<HousingFurniture>().TryGetRow(furnitureKey, out var furniture)) continue;
 
-                if (item == null) continue;
+                if (!furniture.Item.IsValid) continue;
+
+                Item item = furniture.Item.Value;
+
                 if (item.RowId == 0) continue;
 
                 if (!IsSelectedFloor(gameObject.Y)) continue;
@@ -679,10 +665,12 @@ namespace MakePlacePlugin
             foreach (var gameObject in objects)
             {
                 uint furnitureKey = gameObject.housingRowId;
-                var furniture = DalamudApi.DataManager.GetExcelSheet<HousingYardObject>().GetRow(furnitureKey);
-                Item item = furniture?.Item?.Value;
 
-                if (item == null) continue;
+                if (!DalamudApi.DataManager.GetExcelSheet<HousingFurniture>().TryGetRow(furnitureKey, out var furniture)) continue;
+                if (!furniture.Item.IsValid) continue;
+
+                Item item = furniture.Item.Value;
+
                 if (item.RowId == 0) continue;
 
                 var housingItem = new HousingItem(item, gameObject);

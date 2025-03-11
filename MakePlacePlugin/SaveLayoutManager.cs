@@ -1,24 +1,21 @@
-﻿using Dalamud.Game.Gui;
-using Dalamud.Logging;
-using Lumina.Excel.GeneratedSheets;
-using MakePlacePlugin.Objects;
 using System;
 using System.Collections.Generic;
+using System.Drawing;
+using System.Globalization;
 using System.IO;
+using System.Linq;
 using System.Numerics;
 using System.Text.Encodings.Web;
 using System.Text.Json;
-
+using System.Text.Json.Serialization;
 using System.Text.RegularExpressions;
 using System.Text.Unicode;
-using System.Linq;
-using static MakePlacePlugin.MakePlacePlugin;
-using System.Drawing;
-using System.Globalization;
-using System.Text.Json.Serialization;
-using ImGuiNET;
+
 using FFXIVClientStructs.FFXIV.Client.Game.MJI;
-using System.Xml.Linq;
+using Lumina.Excel.Sheets;
+using Lumina.Extensions;
+using MakePlacePlugin.Objects;
+using static MakePlacePlugin.MakePlacePlugin;
 
 namespace MakePlacePlugin
 {
@@ -217,9 +214,9 @@ namespace MakePlacePlugin
         static HousingItem ConvertToHousingItem(Furniture furniture)
         {
             var ItemSheet = DalamudApi.DataManager.GetExcelSheet<Item>();
-            var itemRow = ItemSheet.FirstOrDefault(row => row.Name.ToString().Equals(furniture.name));
+            var itemRow = ItemSheet.FirstOrNull(row => row.Name.ToString().Equals(furniture.name));
 
-            if (itemRow == null) itemRow = ItemSheet.FirstOrDefault(row => row.RowId == furniture.itemId);
+            if (itemRow == null) itemRow = ItemSheet.FirstOrNull(row => row.RowId == furniture.itemId);
 
             if (itemRow == null) return null;
 
@@ -227,7 +224,7 @@ namespace MakePlacePlugin
             var quat = new Quaternion(r[0], r[1], r[2], r[3]);
 
             var houseItem = new HousingItem(
-                itemRow,
+                itemRow.Value,
                 (byte)furniture.GetClosestStain(ColorList),
                 descale(furniture.transform.location[0]),
                 descale(furniture.transform.location[2]), // switch Y & Z axis
@@ -286,7 +283,7 @@ namespace MakePlacePlugin
 
             foreach (var stain in StainList)
             {
-                if (stain.Unknown6) // bool for whether the dye can be used for housing
+                if (stain.Unknown2) // bool for whether the dye can be used for housing
                 {
                     ColorList.Add((Color.FromArgb((int)stain.Color), stain.RowId));
                 }
@@ -399,7 +396,7 @@ namespace MakePlacePlugin
                 }
             }
 
-            var BuildingSheet = DalamudApi.DataManager.GetExcelSheet<MJIBuilding>();
+            var BuildingSheet = DalamudApi.DataManager.GetSubrowExcelSheet<MJIBuilding>();
 
             var workshop = state.Workshops;
             for (int i = 0; i < 4; i++)
@@ -408,7 +405,8 @@ namespace MakePlacePlugin
 
                 var fixture = new Fixture("Facility");
                 fixture.level = "Facility " + ToRoman(workshop.PlaceId[i]);
-                fixture.name = BuildingSheet.GetRow(1, workshop.BuildingLevel[i])?.Name.Value.Text.ToString();
+                fixture.name = BuildingSheet.GetSubrowOrDefault(1, workshop.BuildingLevel[i])?.Name.Value.Text.ToString();
+
                 exterior.Add(fixture);
             }
 
@@ -418,7 +416,8 @@ namespace MakePlacePlugin
                 if (granary.PlaceId[i] == 0) continue;
                 var fixture = new Fixture("Facility");
                 fixture.level = "Facility " + ToRoman(granary.PlaceId[i]);
-                fixture.name = BuildingSheet.GetRow(2, granary.BuildingLevel[i])?.Name.Value.Text.ToString();
+                fixture.name = BuildingSheet.GetSubrowOrDefault(2, granary.BuildingLevel[i])?.Name.Value.Text.ToString();
+
                 exterior.Add(fixture);
             }
 
@@ -430,7 +429,7 @@ namespace MakePlacePlugin
 
                 var fixture = new Fixture("Landmark");
                 fixture.level = "Landmark " + ToRoman((byte)(i + 1));
-                fixture.name = LandmarkSheet.GetRow(id)?.Name.Value.Text.ToString();
+                fixture.name = LandmarkSheet.GetRowOrDefault(id)?.Name.Value.Text.ToString();
                 exterior.Add(fixture);
             }
         }
@@ -448,13 +447,17 @@ namespace MakePlacePlugin
                 for (var j = 0; j < IndoorFloorData.PartsMax; j++)
                 {
                     if (fixtures[j].FixtureKey == -1 || fixtures[j].FixtureKey == 0) continue;
-                    if (fixtures[j].Item == null) continue;
+                    if (!fixtures[j].Item.HasValue) continue;
+
+                    var item = fixtures[j].Item.Value;
+                    if (item.RowId == 0) continue;
 
                     var fixture = new Fixture();
                     fixture.type = Utils.GetInteriorPartDescriptor((InteriorPartsType)j);
                     fixture.level = Utils.GetFloorDescriptor((InteriorFloor)i);
-                    fixture.name = fixtures[j].Item.Name.ToString();
-                    fixture.itemId = fixtures[j].Item.RowId;
+
+                    fixture.name = item.Name.ExtractText();
+                    fixture.itemId = item.RowId;
 
                     layout.interiorFixture.Add(fixture);
                 }
@@ -463,9 +466,8 @@ namespace MakePlacePlugin
             layout.houseSize = Memory.Instance.GetIndoorHouseSize();
 
             var territoryId = Memory.Instance.GetTerritoryTypeId();
-            var row = DalamudApi.DataManager.GetExcelSheet<TerritoryType>().GetRow(territoryId);
 
-            if (row != null)
+            if (DalamudApi.DataManager.GetExcelSheet<TerritoryType>().TryGetRow(territoryId, out var row))
             {
                 var placeName = row.Name.ToString();
 
@@ -490,6 +492,9 @@ namespace MakePlacePlugin
                         break;
                     case "r1":
                         district.name = "穹顶皓天";
+                        break;
+                    case "h1":
+                        district.name = "Minimalist";
                         break;
                     default:
                         break;
@@ -527,13 +532,11 @@ namespace MakePlacePlugin
                 }
                 else if (gameObject.MaterialItemKey != 0)
                 {
-                    var item = DalamudApi.DataManager.GetExcelSheet<Item>().GetRow(gameObject.MaterialItemKey);
-                    if (item != null)
+                    if (DalamudApi.DataManager.GetExcelSheet<Item>().TryGetRow(gameObject.MaterialItemKey, out var item))
                     {
                         var basicItem = new BasicItem();
                         basicItem.name = item.Name.ToString();
                         basicItem.itemId = gameObject.MaterialItemKey;
-
                         furniture.properties.Add("material", basicItem);
                     }
 

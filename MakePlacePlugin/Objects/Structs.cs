@@ -1,11 +1,7 @@
-﻿using System;
+﻿using Lumina.Excel.Sheets;
+using System;
 using System.Numerics;
 using System.Runtime.InteropServices;
-using FFXIVClientStructs.FFXIV.Client.Game;
-using FFXIVClientStructs.FFXIV.Client.Game.MJI;
-using FFXIVClientStructs.FFXIV.Client.Graphics.Scene;
-using Lumina.Excel.GeneratedSheets;
-using static MakePlacePlugin.Utils;
 
 namespace MakePlacePlugin
 {
@@ -47,51 +43,15 @@ namespace MakePlacePlugin
         Light
     }
 
-    // Just easier to move around and can have methods
-    public struct CommonLandSet
-    {
-        public uint LandRange;
-        public uint PlacardId;
-
-        public uint UnknownRange1;
-
-        public uint InitialPrice;
-        public byte Size;
-        public int PlotIndex;
-
-        public static CommonLandSet FromExd(HousingLandSet.LandSet lset, int index)
-        {
-            var ret = new CommonLandSet();
-            ret.LandRange = lset.LandRange;
-            ret.PlacardId = lset.PlacardId;
-            ret.UnknownRange1 = lset.UnknownRange1;
-            ret.InitialPrice = lset.InitialPrice;
-            ret.Size = lset.Size;
-            ret.PlotIndex = index;
-            return ret;
-        }
-
-        public string SizeString()
-        {
-            return Size switch
-            {
-                0 => "小",
-                1 => "中",
-                2 => "大",
-                _ => "公寓"
-            };
-        }
-    }
-
     public struct CommonFixture
     {
         public bool IsExterior;
         public int FixtureType;
         public int FixtureKey;
-        public Stain Stain;
-        public Item Item;
+        public Stain? Stain;
+        public Item? Item;
 
-        public CommonFixture(bool isExterior, int fixtureType, int fixtureKey, Stain stain, Item item)
+        public CommonFixture(bool isExterior, int fixtureType, int fixtureKey, Stain? stain, Item item)
         {
             IsExterior = isExterior;
             FixtureType = fixtureType;
@@ -131,18 +91,6 @@ namespace MakePlacePlugin
     public unsafe struct ItemMaterialManager
     {
         [FieldOffset(0xcc)] public ushort MaterialSlot1;
-    }
-
-
-    [StructLayout(LayoutKind.Explicit, Size = 0x30)]
-    public unsafe struct HousingItemInfo
-    {
-        [FieldOffset(0x0)] public ushort modelId;
-        [FieldOffset(0x10)] public float X;
-        [FieldOffset(0x14)] public float Y;
-        [FieldOffset(0x18)] public float Z;
-        [FieldOffset(0x20)] public float Rotation;
-        [FieldOffset(0x24)] public uint ObjectIndex;
     }
 
 
@@ -191,11 +139,11 @@ namespace MakePlacePlugin
         [FieldOffset(0x9AC0)] public HousingGameObject* OutdoorHoverObject;
         [FieldOffset(0x9AC8)] public HousingGameObject* OutdoorActiveObject;
 
-        public static HousingItemInfo* GetItemInfo(HousingObjectManager* mgr, int index)
+        public static FFXIVClientStructs.FFXIV.Client.Game.HousingFurniture* GetItemInfo(HousingObjectManager* mgr, int index)
         {
             var objectListAddr = (IntPtr)mgr + 0x10;
 
-            return (HousingItemInfo*)(objectListAddr + (0x30 * index));
+            return (FFXIVClientStructs.FFXIV.Client.Game.HousingFurniture*)(objectListAddr + (0x30 * index));
         }
     }
 
