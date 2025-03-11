@@ -88,7 +88,7 @@ namespace MakePlacePlugin
 
             SelectItemHook = HookManager.Hook<SelectItemDelegate>("48 85 D2 0F 84 49 09 00 00 53 41 56 48 83 EC 48 48 89 6C 24 60 48 8B DA 48 89 74 24 70 4C 8B F1", SelectItemDetour);
 
-            PlaceItemHook = HookManager.Hook<PlaceItemDelegate>("48 89 5C 24 10 48 89 74  24 18 57 48 83 EC 20 4c 8B 41 18 33 FF 0F B6 F2", PlaceItemDetour);
+            PlaceItemHook = HookManager.Hook<PlaceItemDelegate>("48 89 5C 24 10 48 89 74 24 18 57 48 83 EC 20 4c 8B 41 18 33 FF 0F B6 F2", PlaceItemDetour);
 
             UpdateYardObjHook = HookManager.Hook<UpdateYardDelegate>("48 89 74 24 18 57 48 83 ec 20 b8 dc 02 00 00 0f b7 f2 ??", UpdateYardObj);
 
@@ -206,7 +206,7 @@ namespace MakePlacePlugin
             {
                 Memory.Instance.SetPlaceAnywhere(OriginalPlaceAnywhere);
                 CurrentlyPlacingItems = false;
-                Log("Finished applying layout");
+                Log("应用布局完毕");
             }
         }
 

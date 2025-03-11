@@ -472,26 +472,26 @@ namespace MakePlacePlugin
                 var placeName = row.Name.ToString();
 
                 var district = new Fixture();
-                district.type = "区域";
+                district.type = "District";
 
                 var districtName = placeName.Substring(0, 2);
 
                 switch (districtName)
                 {
                     case "s1":
-                        district.name = "海雾村";
+                        district.name = "Mist";
                         break;
                     case "f1":
-                        district.name = "薰衣草苗圃";
+                        district.name = "Lavender Beds";
                         break;
                     case "w1":
-                        district.name = "高脚孤丘";
+                        district.name = "Goblet";
                         break;
                     case "e1":
-                        district.name = "白银乡";
+                        district.name = "Shirogane";
                         break;
                     case "r1":
-                        district.name = "穹顶皓天";
+                        district.name = "Empyreum";
                         break;
                     case "h1":
                         district.name = "Minimalist";
@@ -553,7 +553,7 @@ namespace MakePlacePlugin
 
             if (Directory.Exists(Config.SaveLocation))
             {
-                throw new Exception("Save file not specified");
+                throw new Exception("未指定要保存的文件位置");
             }
 
             Layout save = Plugin.Layout;
