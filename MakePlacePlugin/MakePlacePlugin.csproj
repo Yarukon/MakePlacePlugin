@@ -30,11 +30,6 @@
 	  <DefineConstants>DEBUG;TRACE</DefineConstants>
 	</PropertyGroup>
 
-	<PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
-	  <DebugType>full</DebugType>
-	  <DefineConstants>DEBUG;TRACE</DefineConstants>
-	</PropertyGroup>
-
 	<PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
 		<DebugType>pdbonly</DebugType>
 	</PropertyGroup>
