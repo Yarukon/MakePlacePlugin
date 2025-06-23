@@ -2,11 +2,11 @@
 
 	<PropertyGroup>
 		<DalamudLibPath>..\..\DalamudDep\</DalamudLibPath>
-		<PluginVersion>3.7.3</PluginVersion>
+		<PluginVersion>3.7.4</PluginVersion>
 	</PropertyGroup>
 
 	<PropertyGroup>
-		<TargetFramework>net8.0-windows</TargetFramework>
+		<TargetFramework>net9.0-windows</TargetFramework>
 		<LangVersion>latest</LangVersion>
 		<AssemblyTitle>MakePlacePlugin</AssemblyTitle>
 		<Product>MakePlacePlugin</Product>
@@ -67,6 +67,10 @@
 		</Reference>
 		<Reference Include="Lumina.Excel">
 			<HintPath>$(DalamudLibPath)Lumina.Excel.dll</HintPath>
+			<Private>false</Private>
+		</Reference>
+		<Reference Include="InteropGenerator.Runtime">
+			<HintPath>$(DalamudLibPath)InteropGenerator.Runtime.dll</HintPath>
 			<Private>false</Private>
 		</Reference>
 	</ItemGroup>
